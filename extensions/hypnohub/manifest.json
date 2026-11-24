@@ -1,0 +1,37 @@
+{
+  "id": "hypnohub",
+  "name": "Hypnohub",
+  "abbr": "hh",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "kind": "downloader",
+  "default": false,
+  "site": "https://hypnohub.net/",
+  "media": [
+    "image",
+    "video"
+  ],
+  "tagList": "hh_tags.json",
+  "entry": "downloader.py:DownloaderHh",
+  "minSdkVersion": "1.1",
+  "description": "Hypnohub, Gelbooru 0.2 DAPI (XML). API only: no favorites / pools.",
+  "syntax": {
+    "concat": "+",
+    "idSep": ":",
+    "maxTagsStringLen": 3300,
+    "metaCount": ":(?:(?:[<>]=?|=)?[a-z\\d\\-_]+?|[a-z\\d_]+:[a-z\\d_]+?)",
+    "sort": "sort(?::[^:]+?){1,2}",
+    "fav": "",
+    "pool": ""
+  },
+  "$generator": {
+    "tool": "lynxx.extgen",
+    "toolVersion": "2.0 r7",
+    "engine": "gelbooru_dapi",
+    "sourceUrl": "https://hypnohub.net/",
+    "createdAt": "2026-11-19T03:10:28Z"
+  },
+  "tagUpdate": {
+    "entry": "tags.py:read_tags"
+  }
+}

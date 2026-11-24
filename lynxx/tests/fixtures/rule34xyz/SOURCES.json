@@ -1,0 +1,19 @@
+{
+ "recorded": "2026-11-22",
+ "fetcher": "urllib GET, User-Agent Lynxx/2.0-r13, 2.5 s apart, robots.txt first (User-Agent: * / Allow: /); 5 requests to rule34.xyz in all (robots.txt, the home page, main-32O2WYYZ.js, chunk-UJBY255H.js, this post), no media file fetched",
+ "files": {
+  "post_4713370.json": {
+   "url": "https://rule34.xyz/api/v2/post/4713370",
+   "what": "a video post (1440 x 1000): its files map lists 10, 11, 12, 13, 14, 30, 31, 32, 34, 100, 101, 102, 112, 113; trimmed: the first 3 tags (id, value, count, type), data.sources emptied, every other field as the site answered it",
+   "bytes": 801,
+   "sha256": "9ec20cdc091df802cef3a566240bf9fe2476acf296b2d344917569e7ecc6a010",
+   "answerSha256": "10ed89b6c8871404c80cad2139942a375f9158892b309a979258fc7a36e1fdec"
+  }
+ },
+ "resolver": {
+  "url": "https://rule34.xyz/chunk-UJBY255H.js",
+  "bytes": 1008298,
+  "sha256": "14d4108b83723b7c91993f7582bbcbd61e1d2cfbb949d72a51cd0b2ddc7e801f",
+  "what": "not kept: the site's postFileResolverService (typesStr) maps variant ids to file names: 1 raw, 10 pic.jpg, 11 pic256.jpg, 12 pic256ex.jpg, 13 picpreview.jpg, 14 picsmall.jpg, 30 picavif.avif, 31 pic256avif.avif, 32 pic256exavif.avif, 33 picpreviewavif.avif, 34 picsmallavif.avif, 100 mov.mp4, 101 mov256.mp4, 102 mov256ex.mp4, 111 360.mp4, 112 mov480.mp4, 113 mov720.mp4, 114 1080.mp4, 2xx *.hevc.mp4, 3xx *.av1.mp4; getVideoSources plays resolveLadder(112, 113, 100) (113, else 100; 112 on phones), getImageUrl takes 14 (\"optimized\", when listed) else 10; Download takes 100 / 10"
+ }
+}

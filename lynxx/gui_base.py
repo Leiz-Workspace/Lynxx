@@ -1,0 +1,2509 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+# circular imports caused by: gui.py
+#
+
+import base64
+import ctypes
+import json
+import pathlib
+import sys
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
+from tkinter import (
+    BOTH,
+    CENTER,
+    END,
+    FLAT,
+    HORIZONTAL,
+    INSERT,
+    LEFT,
+    NO,
+    NONE,
+    RIGHT,
+    SEL,
+    SUNKEN,
+    TOP,
+    YES,
+    BooleanVar,
+    Button,
+    Checkbutton,
+    IntVar,
+    Label,
+    Listbox,
+    Menu,
+    PhotoImage,
+    S,
+    Scrollbar,
+    StringVar,
+    Text,
+    Toplevel,
+    W,
+    Widget,
+    X,
+    Y,
+    filedialog,
+    messagebox,
+    ttk,
+)
+from typing import Literal, NamedTuple, TypeAlias, TypedDict
+
+from tkinterdnd2 import DND_ALL, TkinterDnD
+
+from .defines import (
+    CONNECT_RETRIES_BASE,
+    CONNECT_TIMEOUT_BASE,
+    DATE_MAX_DEFAULT,
+    DATE_MIN_DEFAULT,
+    KNOWN_EXTENSIONS_STR,
+    PLATFORM_WINDOWS,
+    PROGRESS_BAR_MAX,
+    SITENAME_B_BB,
+    SITENAME_B_DB,
+    SITENAME_B_EN,
+    SITENAME_B_RN,
+    SITENAME_B_RP,
+    SITENAME_B_RS,
+    SITENAME_B_RX,
+    SITENAME_B_XB,
+)
+from .dnd_parser import analyze_dnd_string
+from .file_parser import prepare_id_list, prepare_tag_lists
+from .file_sorter import FileTypeFilter
+from .gui_defines import (
+    BEGIN,
+    BUT_CTRL_A,
+    BUT_CTRL_BACKSPACE,
+    BUT_CTRL_DELETE,
+    BUT_CTRL_SPACE,
+    BUT_DELETE,
+    BUT_ESCAPE,
+    BUT_RETURN,
+    COLOR_DARKGRAY,
+    COLOR_LIGHTGRAY,
+    COLUMNSPAN_MAX,
+    CVARS,
+    FONT_LUCIDA_MEDIUM,
+    FONT_SANS_MEDIUM,
+    FONT_SANS_SMALL,
+    GLOBAL_COLUMNCOUNT,
+    GUI2_UPDATE_DELAY_DEFAULT,
+    IMG_ADD_DATA,
+    IMG_DELETE_DATA,
+    IMG_LEFT2_DATA,
+    IMG_LEFT_DATA,
+    IMG_OPEN_DATA,
+    IMG_PROC_BB_DATA,
+    IMG_PROC_EN_DATA,
+    IMG_PROC_LYNXX_DATA,
+    IMG_PROC_RN_DATA,
+    IMG_PROC_RP_DATA,
+    IMG_PROC_RS_DATA,
+    IMG_PROC_RX_DATA,
+    IMG_PROC_XB_DATA,
+    IMG_SAVE_DATA,
+    IMG_TEXT_DATA,
+    OPTION_VALUES_DOWNLOAD_ORDER,
+    OPTION_VALUES_IMAGES,
+    OPTION_VALUES_PARCHI,
+    OPTION_VALUES_PROXYTYPE,
+    OPTION_VALUES_THREADING,
+    OPTION_VALUES_VIDEOS,
+    PADDING_DEFAULT,
+    PADDING_ROOTFRAME_I,
+    ROWSPAN_MAX,
+    STATE_DISABLED,
+    STATE_NORMAL,
+    STATE_READONLY,
+    STICKY_ALLDIRECTIONS,
+    STICKY_HORIZONTAL,
+    STICKY_LEFT,
+    TOOLTIP_DATE,
+    TOOLTIP_DELAY_DEFAULT,
+    TOOLTIP_DOWNLOAD_LIMIT,
+    TOOLTIP_DOWNLOAD_ORDER,
+    TOOLTIP_HCOOKIE_ADD_ENTRY,
+    TOOLTIP_HCOOKIE_DELETE,
+    TOOLTIP_IMAGES,
+    TOOLTIP_INVALID_SYNTAX,
+    TOOLTIP_INVALID_TAGS,
+    TOOLTIP_PARCHI,
+    TOOLTIP_TAGS_CHECK,
+    TOOLTIP_THREADING,
+    TOOLTIP_VIDEOS,
+    WINDOW_MINSIZE,
+    Globals,
+    Icons,
+    Menus,
+    Options,
+    SubMenus,
+    global_unfocus,
+    gobjects,
+    hotkeys,
+    menu_items,
+)
+from .help import (
+    ABOUT_MSG,
+    HELP_TAGS_MSG_BB,
+    HELP_TAGS_MSG_DB,
+    HELP_TAGS_MSG_EN,
+    HELP_TAGS_MSG_RN,
+    HELP_TAGS_MSG_RP,
+    HELP_TAGS_MSG_RS,
+    HELP_TAGS_MSG_RX,
+    HELP_TAGS_MSG_XB,
+)
+from .module import ProcModule
+from .rex import re_ask_values, re_json_entry_value, re_space_mult
+from .tags import TAG_CATEGORY_NAMES_BY_TYPE, TagCategories
+from .tags_parser import parse_tags
+from .tagsdb import TagsDB
+from .tooltips import WidgetToolTip
+from .useragent import UAManager
+from .utils import garble_text
+from .validators import valid_api_key, valid_positive_int, valid_proxy, valid_window_position
+from .vcs import __LYNXX_DEBUG__, APP_NAME, APP_VERSION
+
+__all__ = (
+    'AskChecksWindow',
+    'AskFileScoreFilterWindow',
+    'AskFileSizeFilterWindow',
+    'AskFileTypeFilterWindow',
+    'AskFirstLastWindow',
+    'AskIntWindow',
+    'AskRetagParamsWindow',
+    'GetRoot',
+    'ask_filename',
+    'ask_select_media_files_in_dir',
+    'browse_path',
+    'config_global',
+    'config_menu',
+    'create_base_window_widgets',
+    'get_curdir',
+    'get_global',
+    'get_grid_info',
+    'get_icon',
+    'get_media_files_dir',
+    'getrootconf',
+    'help_about',
+    'help_tags',
+    'hotkey_text',
+    'init_additional_windows',
+    'is_focusing',
+    'is_global_disabled',
+    'is_menu_disabled',
+    'load_batch_download_tag_list',
+    'load_id_list',
+    'load_tags_db',
+    'register_menu',
+    'register_menu_checkbutton',
+    'register_menu_command',
+    'register_menu_radiobutton',
+    'register_menu_separator',
+    'register_submenu',
+    'register_submenu_command',
+    'register_submenu_radiobutton',
+    'rootm',
+    'set_bool_var',
+    'set_console_shown',
+    'set_int_var',
+    'set_string_var',
+    'setrootconf',
+    'text_cmdm',
+    'toggle_autocompletion',
+    'toggle_console',
+    'trigger_autocomplete_tag',
+    'unfocus_buttons_once',
+    'update_garbled_text_states',
+    'update_lastpath',
+    'window_apikeym',
+    'window_hcookiesm',
+    'window_logm',
+    'window_proxym',
+    'window_qbuilderm',
+    'window_retriesm',
+    'window_timeoutm',
+)
+
+IS_WIN = sys.platform == PLATFORM_WINDOWS
+PROXY_DEFAULT_STR = '127.0.0.1:222'
+
+LITERAL_TYPE_FIRST_LAST: TypeAlias = Literal['first', 'last', None]
+
+SITENAMES_PER_PROC_MODULE = {
+    ProcModule.RX: SITENAME_B_RX,
+    ProcModule.RN: SITENAME_B_RN,
+    ProcModule.RS: SITENAME_B_RS,
+    ProcModule.RP: SITENAME_B_RP,
+    ProcModule.EN: SITENAME_B_EN,
+    ProcModule.XB: SITENAME_B_XB,
+    ProcModule.BB: SITENAME_B_BB,
+    ProcModule.DB: SITENAME_B_DB,
+}
+HELP_TAGS_PER_PROC_MODULE = {
+    ProcModule.RX: HELP_TAGS_MSG_RX,
+    ProcModule.RN: HELP_TAGS_MSG_RN,
+    ProcModule.RS: HELP_TAGS_MSG_RS,
+    ProcModule.RP: HELP_TAGS_MSG_RP,
+    ProcModule.EN: HELP_TAGS_MSG_EN,
+    ProcModule.XB: HELP_TAGS_MSG_XB,
+    ProcModule.BB: HELP_TAGS_MSG_BB,
+    ProcModule.DB: HELP_TAGS_MSG_DB,
+}
+
+
+class _GridInfo(TypedDict):
+    column: int
+    columnspan: int
+    row: int
+    rowspan: int
+    ipadx: int
+    ipady: int
+    padx: int | tuple[int, int]
+    pady: int | tuple[int, int]
+    sticky: str
+
+
+def set_console_shown(shown: bool) -> None:
+    global _console_shown
+    _console_shown = shown
+
+
+def get_icon(index: Icons) -> PhotoImage | None:
+    return _icons.get(index)
+
+
+def _cur_row() -> int | None:
+    return _c_row
+
+
+def _cur_column() -> int | None:
+    return _c_col
+
+
+def _next_row() -> int | None:
+    global _c_row
+    _c_row = _c_row + 1 if _c_row is not None else 0
+    return _cur_row()
+
+
+def _next_column() -> int | None:
+    global _c_col
+    _c_col = _c_col + 1 if _c_col is not None else 0
+    return _cur_column()
+
+
+def _first_row() -> int | None:
+    global _c_row
+    _c_row = None
+    return _next_row()
+
+
+def _first_column() -> int | None:
+    global _c_col
+    _c_col = None
+    return _next_column()
+
+
+def _attach_tooltip(widget: Widget, contents: Iterable[str] | Callable[[], Iterable[str]],
+                    appeardelay=TOOLTIP_DELAY_DEFAULT, border_width: int | None = None,
+                    relief: str | None = None, bgcolor: str | None = None, timed=False) -> WidgetToolTip:
+    return WidgetToolTip(widget, contents, timed=timed, bgcolor=bgcolor, appear_delay=appeardelay, border_width=border_width, relief=relief)
+
+
+def _register_global(index: Globals, gobject: Widget) -> None:
+    assert index in gobjects and gobjects.get(index) is None
+    gobjects[index] = gobject
+
+
+class _AppRoot(TkinterDnD.Tk):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        global _rootFrame
+        global _rootMenu
+
+        self.title(f'{APP_NAME} {APP_VERSION}')
+        self.default_bg_color = self['bg']
+
+        _rootFrame = _BaseFrame(self)
+        _rootFrame.pack(fill=BOTH, expand=YES, anchor=S, padx=PADDING_ROOTFRAME_I)
+        _rootMenu = Menu(self)
+        self.configure(menu=_rootMenu)
+        _first_row()
+        _first_column()
+
+    def set_position(self, x: float, y: float) -> None:
+        wh_fmt = f'{x:.0f}x{y:.0f}'
+        geom_fmt = valid_window_position(wh_fmt, self)
+        self.geometry(geom_fmt)
+        setrootconf(Options.WINDOW_POSITION, wh_fmt)
+
+    def adjust_position(self) -> None:
+        x = self.winfo_screenwidth() / 2 - WINDOW_MINSIZE[0] / 2
+        y = self.winfo_screenheight() / 2 - WINDOW_MINSIZE[1] / 2 + self.winfo_screenheight() / (3.5 if __LYNXX_DEBUG__ else 8)
+        self.set_position(x, y)
+        self.update()
+        # self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())  # not smaller than these
+        self.resizable(False, False)
+
+    def finalize(self) -> None:
+        self.bind(BUT_ESCAPE, func=lambda _: self.focus_set())  # release focus from any element on `Esc`
+        self.configure(bg=self.default_bg_color)
+        self.mainloop()
+
+
+class _BaseMenu(Menu):
+    def __init__(self, parent, *args, **kw) -> None:
+        super().__init__(parent, *args, **kw)
+        self.configure(tearoff=False)
+
+
+class _BaseFrame(ttk.Frame):
+    def __init__(self, parent, **kw) -> None:
+        super().__init__(parent, **kw)
+
+
+class _BaseText(Text):
+    CTRL_DELETION_DELIMS = ' ,.!~/-=:;'
+
+    def __init__(self, parent=None, *args, **kw) -> None:
+        known_bindings: dict[str, Callable[[...], None]] = kw.pop('bindings', {})
+        self._textvariable = kw.pop('textvariable', StringVar(rootm(), '', ''))
+        self._textrealvariable: StringVar | None = kw.pop('encodevariable', None)
+        self._option_name = str(self._textrealvariable) if str(self._textrealvariable) != str(None) else str(self._textvariable)
+        kw.update(height=1, undo=True, maxundo=500, wrap=NONE)
+        super().__init__(parent, *args, **kw)
+
+        self._initted_value = False
+        self._text_override = ''
+        self._bg_color_orig = self['bg']
+
+        self.insert(END, self._textvariable.get())
+        self.tk.eval('''
+            proc widget_proxy {widget widget_command args} {
+                set result [uplevel [linsert $args 0 $widget_command]]
+                if {([lindex $args 0] in {insert replace delete})} {
+                    event generate $widget <<Change>> -when tail
+                }
+                return $result
+            }
+        ''')
+        self.tk.eval('''
+            rename {widget} _{widget}
+            interp alias {{}} ::{widget} {{}} widget_proxy {widget} _{widget}
+        '''.format(widget=str(self)))
+
+        def parent_event(sequence: str, *args_) -> str:
+            if sequence in known_bindings:
+                known_bindings[sequence](*args_)
+            return 'break'
+
+        self._textvariable.trace_add('unset', self._on_var_change)
+        self._textvariable.trace_add('write', self._on_var_change)
+        self.bind('<<Change>>', self._on_widget_change)
+        self.bind('<<Paste>>', self._handle_paste)
+        self.bind('<<Selection>>', self._handle_select)
+        self.bind('<FocusIn>', self._handle_enter)
+        self.bind('<FocusOut>', self._handle_exit)
+        self.bind(BUT_RETURN, lambda e: parent_event(BUT_RETURN, e))
+        self.bind(BUT_CTRL_BACKSPACE, self._on_event_ctrl_backspace)
+        self.bind(BUT_CTRL_DELETE, self._on_event_ctrl_delete)
+        self.bind(BUT_CTRL_SPACE, self.on_event_ctrl_space)
+
+    def _clear(self) -> None:
+        self.delete(BEGIN, END)
+
+    def _is_type(self, check_type: Options) -> bool:
+        return CVARS[check_type] == self._option_name
+
+    @staticmethod
+    def _encoding_enabled() -> bool:
+        return bool(int(getrootconf(Options.HIDE_PERSONAL_INFO)))
+
+    def _is_encoded(self) -> bool:
+        return isinstance(self._textrealvariable, StringVar)
+
+    def _is_text_encoded(self) -> bool:
+        assert self._is_encoded()
+        return self._textvariable.get().count('*') == len(self._textvariable.get())
+
+    def _get_text_real(self) -> str:
+        assert self._is_encoded()
+        return self._textrealvariable.get()
+
+    def _get_text_encoded(self) -> str:
+        assert self._is_encoded()
+        return garble_text(self._get_text_real())
+
+    def _set_text_real(self) -> None:
+        assert self._is_encoded()
+        self.settext(self._get_text_real())
+
+    def _set_text_encoded(self) -> None:
+        assert self._is_encoded()
+        self.settext(self._get_text_encoded())
+
+    def update_encoded_state(self) -> None:
+        assert self._is_encoded()
+        if self._encoding_enabled() and not is_focusing(self):
+            self._set_text_encoded()
+        else:
+            self._set_text_real()
+
+    def gettext(self) -> str:
+        return self.get(BEGIN, f'{END}-1c')
+
+    def settext(self, text: str, *args) -> None:
+        my_text = text
+        is_same = self.gettext() == my_text
+        idx = int((self.index(INSERT) if is_focusing(self) else self.index(f'{END}-1c')).split('.')[1])
+        self._clear()
+        self.insert(BEGIN, my_text, *args)
+        self._on_widget_change()
+        if is_focusing(self):
+            self.mark_set(INSERT, f'1.{idx - (1 - int(is_same)):d}')
+
+    def select_all(self) -> None:
+        end_index = f'{END}-1c'
+        self.tag_add(SEL, BEGIN, end_index)
+        self.mark_set(INSERT, self.index(end_index))
+
+    def set_state(self, state: str) -> None:
+        self.configure(bg=self._bg_color_orig if state == STATE_NORMAL else rootm().default_bg_color)
+
+    def _handle_enter(self, *_) -> None:
+        if self._is_encoded() and self._encoding_enabled():
+            self._set_text_real()
+
+    def _handle_exit(self, *_) -> None:
+        if self._is_encoded() and self._encoding_enabled():
+            self._set_text_encoded()
+
+    def _handle_select(self, *_) -> None:
+        sel = self.tag_ranges(SEL)
+        if sel and float(str(sel[1])) >= 2.0:
+            end_index = f'{END}-1c'
+            self.tag_remove(SEL, end_index)
+            self.tag_add(SEL, sel[0], end_index)
+            self.mark_set(INSERT, end_index)
+
+    def _handle_paste(self, *_) -> None:
+        self._handle_paste_text(self.clipboard_get())
+
+    def _handle_paste_text(self, pasted_text: str, force=False) -> None:
+        cur_text = self.gettext()
+        new_text = re_space_mult.sub(r' ', pasted_text.replace('\n', ' '))
+        idx_adjust = len(new_text)
+        sel = self.tag_ranges(SEL)
+        if sel:
+            idx = int(str(sel[0]).split('.')[1])
+            idx2 = 999999 if float(str(sel[1])) >= 2.0 else int(str(sel[1]).split('.')[1])
+        else:
+            idx = idx2 = int(self.index(INSERT).split('.')[1])
+        self._text_override = f'{cur_text[:idx]}{new_text}{cur_text[idx2:]}'
+        if force:
+            self._on_widget_change()
+        self.after(1, lambda *_: self.mark_set(INSERT, f'1.{idx + idx_adjust:d}'))
+
+    def _on_var_change(self, *_) -> None:
+        my_text = self.gettext()
+        var_text = self._textvariable.get()
+        if my_text != var_text:
+            self.settext(var_text)
+        if self._is_encoded() and not self._is_text_encoded():
+            self._textrealvariable.set(var_text)
+        if self._initted_value is False:
+            self._initted_value = True
+            self.edit_reset()
+
+    def _on_widget_change(self, *_) -> None:
+        self._textvariable.set(
+            self._text_override or
+            (re_space_mult.sub(r' ', self.gettext().replace('\n', ' '))
+             if getattr(self._textvariable, '_name', '') == CVARS[Options.TAGS] else self.gettext()))
+        self._text_override = ''
+
+    def _on_event_ctrl_backspace(self, *_) -> None:
+        if self.tag_ranges(SEL):
+            return
+        my_str = self.gettext()
+        cur_idx = prev_idx = int(self.index(INSERT).split('.')[1])
+        while prev_idx >= 1:
+            prev_idx -= 1
+            if prev_idx >= 1 and my_str[prev_idx] == my_str[prev_idx - 1]:
+                continue
+            if my_str[prev_idx] in self.CTRL_DELETION_DELIMS:
+                if prev_idx == cur_idx - 1:
+                    continue
+                if my_str[prev_idx] != my_str[prev_idx + 1]:
+                    prev_idx += 1
+                break
+        self.delete(f'1.{prev_idx + 1:d}', INSERT)
+
+    def _on_event_ctrl_delete(self, *_) -> None:
+        if self.tag_ranges(SEL):
+            return
+        my_str = self.gettext()
+        cur_idx = next_idx = int(self.index(INSERT).split('.')[1])
+        end_idx = int(self.index(f'{END}-1c').split('.')[1]) - 1
+        while next_idx < end_idx:
+            next_idx += 1
+            if next_idx < end_idx and my_str[next_idx] == my_str[next_idx + 1]:
+                continue
+            if my_str[next_idx] in self.CTRL_DELETION_DELIMS:
+                if next_idx != cur_idx:
+                    continue
+                if my_str[next_idx] != my_str[next_idx - 1]:
+                    next_idx -= 1
+                break
+        self.delete(INSERT, f'1.{next_idx:d}')
+
+    def on_event_ctrl_space(self, *_) -> None:
+        if int(getrootconf(Options.AUTOCOMPLETION_ENABLE)) == 0:
+            return
+        if self.tag_ranges(SEL):
+            return
+        my_str = self.gettext()
+        cur_idx = int(self.index(INSERT).split('.')[1])
+        end_idx = int(self.index(f'{END}-1c').split('.')[1]) - 1
+        prev_idx = min(cur_idx, end_idx)
+        while prev_idx > 0:
+            if prev_idx != cur_idx and my_str[prev_idx] in ' ~' + '/\\' * self._is_type(Options.PATH):
+                last_idx = min(end_idx, cur_idx)
+                prev_idx = min(prev_idx + 1, last_idx)
+                if prev_idx < last_idx and my_str[prev_idx] == '-':
+                    prev_idx += 1
+                break
+            prev_idx -= 1
+        atext = my_str[prev_idx:cur_idx]
+        autocompletions = TagsDB.autocomplete_tag(ProcModule.name(), atext)
+        if not autocompletions:
+            return
+        if len(autocompletions) == 1:
+            if autocompletions[0][0]:
+                self._handle_paste_text(autocompletions[0][0], True)
+            return
+        om = _BaseMenu(self)
+        for mtag, taginfo in autocompletions:
+            om.add_command(label=f'{atext}{mtag} ({taginfo.posts_count:d})', command=lambda t=mtag: self._handle_paste_text(t, True))
+        om.tk_popup(self.winfo_rootx() + self.bbox(INSERT)[0], self.winfo_rooty() + self.bbox(INSERT)[1] + 18)
+
+
+class _BaseWindow:
+    def __init__(self, parent, init_hidden=True) -> None:
+        self._parent = parent
+        self.window: Toplevel | None = None
+        self._visible = False
+        self._reinit(init_hidden)
+
+    @property
+    def visible(self) -> bool:
+        return self._visible
+
+    # requires override
+    def config(self) -> None:
+        messagebox.showerror('', 'nyi method \'config\' called!')
+        assert False
+
+    # requires override
+    def finalize(self) -> None:
+        messagebox.showerror('', 'nyi method \'finalize\' called!')
+        assert False
+
+    # requires override
+    def toggle_visibility(self) -> None:
+        messagebox.showerror('', 'nyi method \'toggle_visibility\' called!')
+        assert False
+
+    def _reinit(self, init_hidden: bool) -> None:
+        self.window = Toplevel(self._parent)
+        self._visible = True
+        self.config()
+        if init_hidden:
+            self.hide()
+
+    def hide(self) -> None:
+        self.window.withdraw()
+        self._visible = False
+
+    def _show(self) -> None:
+        self.window.deiconify()
+        self._visible = True
+
+
+class _AwaitableAskWindow(_BaseWindow, ABC):
+    VALUE_ON = '1'
+    VALUE_OFF = '0'
+
+    def __init__(self, parent, title: str, *, variables_count=1) -> None:
+        self._title = title or ''
+        self._but_ok: Button | None = None
+        self._but_cancel: Button | None = None
+        self._variables = [StringVar(parent, _AwaitableAskWindow.VALUE_OFF) for _ in range(variables_count)]
+        super().__init__(parent, False)
+
+    def _reset_index(self, idx: int) -> None:
+        self._set_variable(idx, _AwaitableAskWindow.VALUE_OFF)
+
+    def _reset_indexes(self, except_idx: int) -> None:
+        [self._set_variable(_, _AwaitableAskWindow.VALUE_OFF) for _ in range(len(self._variables)) if _ != except_idx]
+
+    def _set_variable(self, idx: int, value: str) -> None:
+        assert 0 <= idx < len(self._variables)
+        self._variables[idx].set(value)
+
+    def get_variable(self, idx: int) -> str:
+        assert 0 <= idx < len(self._variables)
+        return self._variables[idx].get()
+
+    def config(self) -> None:
+        self.window.title(self._title)
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=12, pady=12, row=_first_row())
+
+        self._put_widgets(downframe)
+
+        _BaseFrame(downframe, height=16).grid(row=_next_row(), columnspan=2)
+
+        self._but_ok = Button(downframe, width=8, text='Ok', command=self._ok)
+        self._but_cancel = Button(downframe, width=8, text='Cancel', command=self._cancel)
+        self._but_ok.grid(row=_next_row(), column=_first_column(), columnspan=1)
+        self._but_cancel.grid(row=_cur_row(), column=_next_column(), columnspan=1)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 2
+        y = self._parent.winfo_y() + 50
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.wait_visibility()
+        # self.window.grab_set()
+        self.window.update()
+        self.window.transient(self._parent)  # remove minimize and maximize buttons
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+        self.window.focus_set()
+
+        self.window.bind(BUT_ESCAPE, lambda _: self._cancel())
+        self.window.bind(BUT_RETURN, lambda _: self._ok())
+
+    def _ok(self) -> None:
+        self.window.grab_release()
+        self.window.destroy()
+
+    def _cancel(self) -> None:
+        self._set_variable(0, '')
+        self.window.grab_release()
+        self.window.destroy()
+
+    @abstractmethod
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        ...
+
+
+class AskChecksWindow(_AwaitableAskWindow):
+    def __init__(self, parent, texts: Iterable[str], *, unique_index: int | None = None) -> None:
+        self._texts = tuple(texts)
+        self._checkbuttons: list[Checkbutton | None] = [None for _ in self._texts]
+        self._unique_index = unique_index
+        super().__init__(parent, 'Options', variables_count=len(self._checkbuttons))
+
+    def finalize(self) -> None:
+        [self._set_variable(i, _AwaitableAskWindow.VALUE_OFF) for i in range(len(self._checkbuttons))]
+        _AwaitableAskWindow.finalize(self)
+        self._checkbuttons[0].focus_set()
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        uidx = self._unique_index
+        for i in range(len(self._checkbuttons)):
+            row = _next_row() if i > 0 else _first_row()
+            if self._unique_index is not None:
+                command = (lambda: self._reset_indexes(uidx)) if i == uidx else (lambda: self._reset_index(uidx))
+            else:
+                command = None
+            self._checkbuttons[i] = Checkbutton(frame, variable=self._variables[i], text=self._texts[i],
+                                                onvalue=_AwaitableAskWindow.VALUE_ON, offvalue=_AwaitableAskWindow.VALUE_OFF,
+                                                command=command)
+            self._checkbuttons[i].grid(row=row, column=_first_column(), padx=12, columnspan=5, sticky=STICKY_LEFT)
+
+    def value(self) -> list[bool] | None:
+        try:
+            return [bool(int(self.get_variable(_))) for _ in range(len(self._checkbuttons))]
+        except Exception:
+            return None
+
+
+class AskRetagParamsWindow(AskChecksWindow):
+    def __init__(self, parent) -> None:
+        container = TAG_CATEGORY_NAMES_BY_TYPE
+        super().__init__(parent, (_.value for i, _ in enumerate(container.values()) if i < TagCategories.MAX_CATEGORIES), unique_index=0)
+
+    def finalize(self) -> None:
+        AskChecksWindow.finalize(self)
+        self._set_variable(0, _AwaitableAskWindow.VALUE_ON)
+        if ProcModule.is_rn() or ProcModule.is_rp():
+            [_.configure(state=STATE_DISABLED) for _ in self._checkbuttons]
+
+    def value(self) -> list[TagCategories]:
+        try:
+            ask_values = AskChecksWindow.value(self)
+            assert any(bool(_) for _ in ask_values)
+            return [_ for _ in TagCategories if _ < TagCategories.MAX_CATEGORIES and ask_values[_]]
+        except Exception:
+            return [TagCategories.INVALID]
+
+
+class AskFileTypeFilterWindow(_AwaitableAskWindow):
+    VALUES = ('Media type', 'Extension')
+
+    def __init__(self, parent) -> None:
+        self.cbox: ttk.Combobox | None = None
+        super().__init__(parent, 'File types')
+
+    def finalize(self) -> None:
+        self._set_variable(0, AskFileTypeFilterWindow.VALUES[0])
+        _AwaitableAskWindow.finalize(self)
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        self.cbox = ttk.Combobox(frame, values=AskFileTypeFilterWindow.VALUES, state=STATE_READONLY, width=18,
+                                 textvariable=self._variables[0])
+        self.cbox.grid(row=_first_row(), column=_first_column(), columnspan=2)
+
+    def value(self) -> FileTypeFilter:
+        try:
+            # noinspection PyArgumentList
+            return FileTypeFilter(AskFileTypeFilterWindow.VALUES.index(self.get_variable(0)) + 1)
+        except Exception:
+            return FileTypeFilter.INVALID
+
+
+class AskFileSizeFilterWindow(_AwaitableAskWindow):
+    def __init__(self, parent) -> None:
+        self.entry: _BaseText | None = None
+        super().__init__(parent, 'Size thresholds MB')
+
+    def finalize(self) -> None:
+        self._set_variable(0, '')
+        _AwaitableAskWindow.finalize(self)
+        self.entry.focus_set()
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        self.entry = _BaseText(frame, width=18, textvariable=self._variables[0], bindings={BUT_RETURN: lambda _: self._ok()})
+        self.entry.grid(row=_first_row(), column=_first_column(), padx=12, columnspan=2)
+
+    def value(self) -> list[float] | None:
+        try:
+            return [float(val) for val in re_ask_values.findall(self.get_variable(0))]
+        except Exception:
+            return None
+
+
+class AskIntWindow(_AwaitableAskWindow):
+    def __init__(self, parent, validator: Callable[[int], bool], title='Enter number', *, default='') -> None:
+        self.validator = validator
+        self.entry: _BaseText | None = None
+        self.default = default
+        super().__init__(parent, title)
+
+    def finalize(self) -> None:
+        self._set_variable(0, self.default)
+        _AwaitableAskWindow.finalize(self)
+        self.entry.select_all()
+        self.entry.focus_set()
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        self.entry = _BaseText(frame, width=18, textvariable=self._variables[0], bindings={BUT_RETURN: lambda _: self._ok()})
+        self.entry.grid(row=_first_row(), column=_first_column(), padx=12, columnspan=2)
+
+    def value(self) -> int | None:
+        try:
+            val = int(self.get_variable(0))
+            assert self.validator(val)
+            return val
+        except Exception:
+            return None
+
+
+class AskFileScoreFilterWindow(_AwaitableAskWindow):
+    def __init__(self, parent) -> None:
+        self.entry: _BaseText | None = None
+        super().__init__(parent, 'Score thresholds')
+
+    def finalize(self) -> None:
+        self._set_variable(0, '')
+        _AwaitableAskWindow.finalize(self)
+        self.entry.focus_set()
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        self.entry = _BaseText(frame, width=18, textvariable=self._variables[0], bindings={BUT_RETURN: lambda _: self._ok()})
+        self.entry.grid(row=_first_row(), column=_first_column(), padx=12, columnspan=2)
+
+    def value(self) -> list[int] | None:
+        try:
+            return [int(val) for val in re_ask_values.findall(self.get_variable(0))]
+        except Exception:
+            return None
+
+
+class AskFirstLastWindow(_AwaitableAskWindow):
+    VALUES = ('Keep first', 'Keep last')
+
+    def __init__(self, parent, title='Enter number', *, default: LITERAL_TYPE_FIRST_LAST) -> None:
+        self.cbox: ttk.Combobox | None = None
+        self.default = default
+        super().__init__(parent, title)
+
+    def finalize(self) -> None:
+        self._set_variable(0, AskFirstLastWindow.VALUES[0])
+        _AwaitableAskWindow.finalize(self)
+
+    def _put_widgets(self, frame: _BaseFrame) -> None:
+        self.cbox = ttk.Combobox(frame, values=AskFirstLastWindow.VALUES, state=STATE_READONLY, width=25, textvariable=self._variables[0])
+        self.cbox.grid(row=_first_row(), column=_first_column(), columnspan=2)
+
+    def value(self) -> LITERAL_TYPE_FIRST_LAST:
+        try:
+            if AskFirstLastWindow.VALUES.index(self.get_variable(0)) == 0:
+                return 'first'
+            return 'last'
+        except Exception:
+            return self.default
+
+
+class _LogWindow(_BaseWindow):
+    log_window_base_height = 120
+
+    def __init__(self, parent) -> None:
+        self.text: Text | None = None
+        self.scroll: Scrollbar | None = None
+        self.firstshow = True
+        super().__init__(parent)
+
+    def append(self, text: str) -> None:
+        # current scrollbar position
+        self.scroll.update()  # required to get actual pos
+        old_pos = self.scroll.get()
+
+        # appending to text is impossible if text is disabled
+        self.text.configure(state=STATE_NORMAL)
+        self.text.insert(END, text)
+        self.text.configure(state=STATE_DISABLED)
+
+        # scroll to bottom if was at the bottom
+        if old_pos[1] >= 1.0:
+            self.text.mark_set(INSERT, END)
+            self.text.see(END)
+            self.text.yview_moveto(1.0)
+
+    def config(self) -> None:
+        self.window.title('Log')
+
+        # elements
+        upframe = _BaseFrame(self.window, height=25)
+        upframe.pack(side=TOP, fill=X)
+
+        but_clear = Button(upframe, height=1, text='Clear log', command=self.clear)
+        but_clear.pack(fill=X)
+
+        self.text = Text(self.window, font=FONT_SANS_SMALL, relief=SUNKEN, bd=1, bg=COLOR_LIGHTGRAY, height=1)
+        self.text.pack(padx=1, pady=1, fill=BOTH, side=LEFT, expand=YES)
+        self.text.configure(state=STATE_DISABLED)
+
+        self.scroll = Scrollbar(self.window)
+        self.scroll.pack(fill=Y, side=RIGHT, expand=NO)
+        self.scroll['command'] = self.text.yview
+
+        self.text.configure(yscrollcommand=self.scroll.set)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        self.window.transient(self._parent)  # remove minimize and maximize buttons
+        self.window.minsize(self._parent.winfo_width() - 2, _LogWindow.log_window_base_height)
+        self.window.resizable(False, True)
+
+        self.window.bind(BUT_ESCAPE, lambda _: self.toggle_visibility())
+
+    def toggle_visibility(self) -> None:
+        if self.visible is True:
+            self.hide()
+        else:
+            if self.firstshow:
+                self.firstshow = False
+                log_window_offset_y = _LogWindow.log_window_base_height + 26
+                x = self._parent.winfo_x()
+                y = max(self._parent.winfo_y() - log_window_offset_y, 0)
+                self.window.geometry(f'+{x:.0f}+{y:.0f}')
+                self.window.update()
+                self.text.mark_set(INSERT, END)
+                self.text.see(END)
+                self.text.yview_moveto(1.0)
+            self._show()
+        setrootconf(Options.ISLOGOPEN, self.visible)
+
+    def clear(self) -> None:
+        self.text.configure(state=STATE_NORMAL)
+        self.text.delete(1.0, END)
+        self.text.configure(state=STATE_DISABLED)
+
+    def on_destroy(self) -> None:
+        # just hide
+        self.hide()
+        setrootconf(Options.ISLOGOPEN, False)
+
+
+class _ProxyWindow(_BaseWindow):
+    def __init__(self, parent) -> None:
+        self.ptype_var: StringVar | None = None
+        self.entry_addr: _BaseText | None = None
+        self.but_ok: Button | None = None
+        self.but_cancel: Button | None = None
+        self.err_message: WidgetToolTip | None = None
+        super().__init__(parent)
+
+    def config(self) -> None:
+        self.window.title('Proxy')
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=12, pady=12, row=1)
+
+        proxyhint = Label(downframe, font=FONT_SANS_SMALL, text='for example: 101.100.100.10:65335')
+        proxyhint.configure(state=STATE_DISABLED)
+        proxyhint.grid(row=0, column=0, columnspan=15)
+
+        ptype_index = len(OPTION_VALUES_PROXYTYPE) - 1 if __LYNXX_DEBUG__ else 0
+        self.ptype_var = StringVar(rootm(), OPTION_VALUES_PROXYTYPE[ptype_index], CVARS[Options.PROXYTYPE])
+        cbtype = ttk.Combobox(downframe, values=OPTION_VALUES_PROXYTYPE, state=STATE_READONLY, width=6,
+                              textvariable=StringVar(rootm(), '', CVARS[Options.PROXYTYPE_TEMP]))
+        cbtype.current(ptype_index)
+        cbtype.grid(row=1, column=0, columnspan=5)
+        cbtype.configure(state=STATE_READONLY)
+        _ = _BaseText(textvariable=StringVar(rootm(), PROXY_DEFAULT_STR if __LYNXX_DEBUG__ else '', CVARS[Options.PROXYSTRING]))
+        self.entry_addr = _BaseText(downframe, font=FONT_SANS_MEDIUM, width=21,
+                                    textvariable=StringVar(rootm(), '', CVARS[Options.PROXYSTRING_TEMP]),
+                                    bindings={BUT_RETURN: lambda _: self.ok()})
+        if __LYNXX_DEBUG__:
+            self.entry_addr.insert(END, PROXY_DEFAULT_STR)
+        self.err_message = _attach_tooltip(self.entry_addr, TOOLTIP_INVALID_SYNTAX, 3000, timed=True)
+        self.entry_addr.grid(row=1, column=5, columnspan=10)
+
+        _BaseFrame(downframe, height=16).grid(row=4, columnspan=15)
+
+        self.but_ok = Button(downframe, width=8, text='Ok', command=self.ok)
+        self.but_cancel = Button(downframe, width=8, text='Cancel', command=self.cancel)
+        self.but_ok.grid(row=5, column=3, columnspan=5)
+        self.but_cancel.grid(row=5, column=8, columnspan=5)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 2
+        y = self._parent.winfo_y() + 50
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.update()
+        self.window.transient(self._parent)
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+
+        self.window.bind(BUT_RETURN, lambda _: self.ok())
+        self.window.bind(BUT_ESCAPE, lambda _: self.cancel())
+        self.window.bind(BUT_CTRL_A, lambda _: self.select_all())
+
+    def select_all(self) -> None:
+        if self.visible is True:
+            self.entry_addr.focus_set()
+            self.entry_addr.select_all()
+
+    def ok(self) -> None:
+        # Address validation
+        newval = str(getrootconf(Options.PROXYSTRING_TEMP))
+
+        # moved to cmdargs, wrapped here
+        try:
+            newval = valid_proxy(newval, False)
+            adr_valid = True
+        except Exception:
+            adr_valid = False
+
+        if not adr_valid:
+            self.err_message.showtip()
+        else:
+            setrootconf(Options.PROXYSTRING, newval)
+            setrootconf(Options.PROXYTYPE, getrootconf(Options.PROXYTYPE_TEMP))
+            self.hide()
+
+    def cancel(self) -> None:
+        setrootconf(Options.PROXYSTRING_TEMP, str(getrootconf(Options.PROXYSTRING)))
+        self.hide()
+
+    def ask(self) -> None:
+        if self.visible is False:
+            self._show()
+        self.select_all()
+
+    def on_destroy(self) -> None:
+        self.cancel()
+
+
+class _HeadersAndCookiesWindow(_BaseWindow):
+    MAX_COOKIES = 3
+    MAX_HEADERS = 3
+    LBOX_WIDTH = 65
+
+    def __init__(self, parent) -> None:
+        self.lbox_h: Listbox | None = None
+        self.bdel_h: Button | None = None
+        self.badd_h: Button | None = None
+        self.entry_h: _BaseText | None = None
+        self.err_message_syntax_h: WidgetToolTip | None = None
+        self.err_message_count_h: WidgetToolTip | None = None
+        self.lbox_c: Listbox | None = None
+        self.bdel_c: Button | None = None
+        self.badd_c: Button | None = None
+        self.entry_c: _BaseText | None = None
+        self.err_message_syntax_c: WidgetToolTip | None = None
+        self.err_message_count_c: WidgetToolTip | None = None
+        super().__init__(parent)
+
+    def config(self) -> None:
+        self.window.title('Headers / Cookies')
+
+        base_width = _HeadersAndCookiesWindow.LBOX_WIDTH
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=6, pady=6, row=1, column=0, columnspan=COLUMNSPAN_MAX)
+
+        hframe = ttk.LabelFrame(downframe, text='Headers list')
+        hframe.pack()
+
+        self.lbox_h = Listbox(hframe, width=base_width, height=_HeadersAndCookiesWindow.MAX_HEADERS, borderwidth=2, font=FONT_SANS_MEDIUM)
+        self.lbox_h.pack(padx=5, pady=0)
+
+        self.bdel_h = Button(hframe, image=get_icon(Icons.DELETE), command=self._delete_selected_h)
+        self.bdel_h.pack(side=LEFT, padx=5, pady=5)
+        _attach_tooltip(self.bdel_h, TOOLTIP_HCOOKIE_DELETE)
+
+        self.badd_h = Button(hframe, image=get_icon(Icons.ADD), command=self._add_header_to_list)
+        self.badd_h.pack(side=LEFT, padx=0, pady=5)
+
+        self.entry_h = _BaseText(hframe, font=FONT_SANS_MEDIUM, textvariable=StringVar(rootm(), '', CVARS[Options.HEADER_ADD_STR]),
+                                 bindings={BUT_RETURN: lambda _: self._add_header_to_list()})
+        self.entry_h.pack(side=LEFT, padx=5, pady=5, fill=X, expand=YES)
+        _attach_tooltip(self.entry_h, TOOLTIP_HCOOKIE_ADD_ENTRY)
+
+        self.err_message_syntax_h = _attach_tooltip(self.entry_h, TOOLTIP_INVALID_SYNTAX, 5000, timed=True)
+        self.err_message_count_h = _attach_tooltip(self.entry_h, ['Too many headers!'], 5000, timed=True)
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=6, pady=6, row=1, column=0, columnspan=COLUMNSPAN_MAX)
+
+        cframe = ttk.LabelFrame(downframe, text='Cookies list')
+        cframe.pack()
+
+        self.lbox_c = Listbox(cframe, width=base_width, height=_HeadersAndCookiesWindow.MAX_COOKIES, borderwidth=2, font=FONT_SANS_MEDIUM)
+        self.lbox_c.pack(padx=5, pady=0)
+
+        self.bdel_c = Button(cframe, image=get_icon(Icons.DELETE), command=self._delete_selected_c)
+        self.bdel_c.pack(side=LEFT, padx=5, pady=5)
+        _attach_tooltip(self.bdel_c, TOOLTIP_HCOOKIE_DELETE)
+
+        self.badd_c = Button(cframe, image=get_icon(Icons.ADD), command=self._add_cookie_to_list)
+        self.badd_c.pack(side=LEFT, padx=0, pady=5)
+
+        self.entry_c = _BaseText(cframe, font=FONT_SANS_MEDIUM, textvariable=StringVar(rootm(), '', CVARS[Options.COOKIE_ADD_STR]),
+                                 bindings={BUT_RETURN: lambda _: self._add_cookie_to_list()})
+        self.entry_c.pack(side=LEFT, padx=5, pady=5, fill=X, expand=YES)
+        _attach_tooltip(self.entry_c, TOOLTIP_HCOOKIE_ADD_ENTRY)
+
+        self.err_message_syntax_c = _attach_tooltip(self.entry_c, TOOLTIP_INVALID_SYNTAX, 5000, timed=True)
+        self.err_message_count_c = _attach_tooltip(self.entry_c, ['Too many cookies!'], 5000, timed=True)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 4
+        y = self._parent.winfo_y() - 60
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.update()
+        self.window.transient(self._parent)
+
+        # initial values just for convenience
+        self.lbox_h.insert(0, f'User-Agent:{UAManager.orig_user_agent()}')
+        self.entry_h.settext('User-Agent:')
+        self.entry_c.settext('cf_clearance:')
+
+        # configure required width (needed if we change default useragent in the future)
+        def get_maxlen(b: Listbox) -> int:
+            return max(len(str(b.get(i))) for i in range(b.size())) if b.size() > 0 else 0
+
+        maxlen = max(*(get_maxlen(lbox) for lbox in (self.lbox_h, self.lbox_c)), _HeadersAndCookiesWindow.LBOX_WIDTH)
+        self.lbox_h.configure(width=maxlen)
+        self.lbox_c.configure(width=maxlen)
+
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+
+        self.window.bind(BUT_ESCAPE, lambda _: self.hide())
+        self.lbox_h.bind(BUT_DELETE, lambda _: self._delete_selected_h())
+        self.lbox_c.bind(BUT_DELETE, lambda _: self._delete_selected_c())
+        # self.entry_h.bind(BUT_RETURN, lambda _: self.add_header_to_list())
+        # self.entry_c.bind(BUT_RETURN, lambda _: self.add_coookie_to_list())
+
+    def toggle_visibility(self) -> None:
+        if self.visible is False:
+            self._show()
+            self._select_all_c()
+        else:
+            self.hide()
+
+        setrootconf(Options.ISHCOOKIESOPEN, self.visible)
+
+    @staticmethod
+    def _listbox_to_json(lb: Listbox) -> dict[str, str]:
+        ls: dict[str, str] = {}
+        for i in range(lb.size()):
+            part1, part2 = tuple(str(lb.get(i)).split(':', 1))
+            ls.update({part1: part2})
+        return ls
+
+    @staticmethod
+    def _listbox_to_json_s(lb: Listbox) -> str:
+        return json.dumps(_HeadersAndCookiesWindow._listbox_to_json(lb), skipkeys=True)
+
+    def get_json_h(self) -> dict[str, str]:
+        return self._listbox_to_json(self.lbox_h)
+
+    def get_json_c(self) -> dict[str, str]:
+        return self._listbox_to_json(self.lbox_c)
+
+    def get_json_h_s(self) -> str:
+        return self._listbox_to_json_s(self.lbox_h)
+
+    def get_json_c_s(self) -> str:
+        return self._listbox_to_json_s(self.lbox_c)
+
+    def _add_header_to_list(self) -> None:
+        syntax_valid = True
+
+        h_count = self.lbox_h.size()
+        newval = str(getrootconf(Options.HEADER_ADD_STR))
+
+        try:
+            parts = re_json_entry_value.search(newval)
+            h_title, h_value = parts.group(1), parts.group(2)
+            for i in range(self.lbox_h.size()):
+                part1, _ = tuple(str(self.lbox_h.get(i)).split(':', 1))
+                if part1.lower() == h_title.lower():
+                    raise KeyError
+            newval = f'{h_title}:{h_value}'
+        except Exception:
+            syntax_valid = False
+
+        if h_count >= _HeadersAndCookiesWindow.MAX_HEADERS:
+            self.err_message_count_h.showtip()
+        elif not syntax_valid:
+            self.err_message_syntax_h.showtip()
+        else:
+            self.lbox_h.insert(END, newval)
+            self.entry_h.settext('User-Agent:')
+            self._select_all_h()
+
+    def _delete_selected_h(self) -> None:
+        if cur := self.lbox_h.curselection():
+            i = self.lbox_h.index(cur)
+            self.lbox_h.delete(cur)
+            if self.lbox_h.size() != 0:
+                self.lbox_h.selection_set(min(i, self.lbox_h.size() - 1))
+
+    def _select_all_h(self) -> None:
+        if self.visible is True:
+            self.entry_h.focus_set()
+            self.entry_h.select_all()
+
+    def _add_cookie_to_list(self) -> None:
+        syntax_valid = True
+
+        c_count = self.lbox_c.size()
+        newval = str(getrootconf(Options.COOKIE_ADD_STR))
+
+        try:
+            parts = re_json_entry_value.search(newval)
+            c_title, c_value = parts.group(1), parts.group(2)
+            for i in range(self.lbox_c.size()):
+                part1, _ = tuple(str(self.lbox_c.get(i)).split(':', 1))
+                if part1.lower() == c_title.lower():
+                    raise KeyError
+            newval = f'{c_title}:{c_value}'
+        except Exception:
+            syntax_valid = False
+
+        if c_count >= _HeadersAndCookiesWindow.MAX_COOKIES:
+            self.err_message_count_c.showtip()
+        elif not syntax_valid:
+            self.err_message_syntax_c.showtip()
+        else:
+            self.lbox_c.insert(END, newval)
+            self.entry_c.settext('cf_clearance:')
+            self._select_all_c()
+
+    def _delete_selected_c(self) -> None:
+        if cur := self.lbox_c.curselection():
+            i = self.lbox_c.index(cur)
+            self.lbox_c.delete(cur)
+            if self.lbox_c.size() != 0:
+                self.lbox_c.selection_set(min(i, self.lbox_c.size() - 1))
+
+    def _select_all_c(self) -> None:
+        if self.visible is True:
+            self.entry_c.focus_set()
+            self.entry_c.select_all()
+
+    def set_headers(self, json_h: dict) -> None:
+        if self.lbox_h.size() > 0:
+            self.lbox_h.delete(0, END)
+        newvals = json_h
+        for k, v in newvals.items():
+            self.lbox_h.insert(END, f'{k!s}:{v!s}')
+
+    def set_cookies(self, json_c: dict) -> None:
+        if self.lbox_c.size() > 0:
+            self.lbox_c.delete(0, END)
+        newvals = json_c
+        for k, v in newvals.items():
+            self.lbox_c.insert(END, f'{k!s}:{v!s}')
+
+    def set_headers_s(self, json_h: str) -> None:
+        if self.lbox_h.size() > 0:
+            self.lbox_h.delete(0, END)
+        newvals = json.loads(json_h)
+        for k, v in newvals.items():
+            self.lbox_h.insert(END, f'{k!s}:{v!s}')
+
+    def set_cookies_s(self, json_c: str) -> None:
+        if self.lbox_c.size() > 0:
+            self.lbox_c.delete(0, END)
+        newvals = json.loads(json_c)
+        for k, v in newvals.items():
+            self.lbox_c.insert(END, f'{k!s}:{v!s}')
+
+    def on_destroy(self) -> None:
+        self.hide()
+        setrootconf(Options.ISHCOOKIESOPEN, False)
+
+
+class _ConnectRequestIntWindow(_BaseWindow):
+    def __init__(self, parent, conf_open: Options, conf_str: Options, conf_str_temp: Options,
+                 title: str, hint: str, baseval: int, minmax: tuple[int, int]) -> None:
+        self.title = title
+        self.hint = hint
+        self.baseval = baseval
+        self.minmax = minmax
+        self.conf_open, self.conf_str, self.conf_str_temp = conf_open, conf_str, conf_str_temp
+        self.var: IntVar | None = None
+        self.entry: _BaseText | None = None
+        self.but_ok: Button | None = None
+        self.but_cancel: Button | None = None
+        self.err_message: WidgetToolTip | None = None
+        super().__init__(parent)
+
+    def config(self) -> None:
+        self.window.title(self.title)
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=12, pady=12, row=1)
+
+        hint = Label(downframe, font=FONT_SANS_SMALL, text=self.hint)
+        hint.configure(state=STATE_DISABLED)
+        hint.grid(row=0, column=0, columnspan=15)
+
+        _ = _BaseText(textvariable=StringVar(rootm(), str(self.baseval), CVARS[self.conf_str]))
+        self.entry = _BaseText(downframe, font=FONT_SANS_MEDIUM, width=19,
+                               textvariable=StringVar(rootm(), '', CVARS[self.conf_str_temp]),
+                               bindings={BUT_RETURN: lambda _: self.ok()})
+        self.entry.insert(END, str(self.baseval))
+        self.err_message = _attach_tooltip(self.entry, TOOLTIP_INVALID_SYNTAX, 3000, timed=True)
+        self.entry.grid(row=1, column=3, columnspan=10)
+
+        _BaseFrame(downframe, height=16).grid(row=4, columnspan=15)
+
+        self.but_ok = Button(downframe, width=8, text='Ok', command=self.ok)
+        self.but_cancel = Button(downframe, width=8, text='Cancel', command=self.cancel)
+        self.but_ok.grid(row=5, column=3, columnspan=5)
+        self.but_cancel.grid(row=5, column=8, columnspan=5)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 2
+        y = self._parent.winfo_y() + 50
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.update()
+        self.window.transient(self._parent)
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+        self.window.bind(BUT_RETURN, lambda _: self.ok())
+        self.window.bind(BUT_ESCAPE, lambda _: self.cancel())
+        self.window.bind(BUT_CTRL_A, lambda _: self._select_all())
+
+    def _select_all(self) -> None:
+        if self.visible is True:
+            self.entry.focus_set()
+            self.entry.select_all()
+
+    def ok(self) -> None:
+        try:
+            # Value validation
+            newval = str(getrootconf(self.conf_str_temp))
+            newval = str(valid_positive_int(newval, lb=self.minmax[0], ub=self.minmax[1]))
+            setrootconf(self.conf_str, newval)
+            self.hide()
+        except Exception:
+            self.err_message.showtip()
+
+    def cancel(self) -> None:
+        setrootconf(self.conf_str_temp, str(getrootconf(self.conf_str)))
+        self.hide()
+
+    def ask(self) -> None:
+        if self.visible is False:
+            self._show()
+            self._select_all()
+
+    def on_destroy(self) -> None:
+        self.cancel()
+
+
+class _ConnectionTimeoutWindow(_ConnectRequestIntWindow):
+    def __init__(self, parent) -> None:
+        super().__init__(parent, Options.ISTIMEOUTOPEN, Options.TIMEOUTSTRING, Options.TIMEOUTSTRING_TEMP,
+                         'Timeout', '3 .. 300, in seconds', CONNECT_TIMEOUT_BASE, (3, 300))
+
+
+class _ConnectionRetriesWindow(_ConnectRequestIntWindow):
+    def __init__(self, parent) -> None:
+        super().__init__(parent, Options.ISRETRIESOPEN, Options.RETRIESSTRING, Options.RETRIESSTRING_TEMP,
+                         'Retries', '5 .. inf.', CONNECT_RETRIES_BASE, (5, 2**63))
+
+
+class _APIRequestStrIntWindow(_BaseWindow):
+    def __init__(self, parent, title: str, hint1: str, hint2: str, baseval: tuple[str, str],
+                 conf_str1: Options, conf_str2: Options, conf_str_temp1: Options, conf_str_temp2: Options) -> None:
+        self.title = title
+        self.hint1 = hint1
+        self.hint2 = hint2
+        self.baseval = baseval
+        self.conf_str1, self.conf_str2 = conf_str1, conf_str2
+        self.conf_str_temp1, self.conf_str_temp2 = conf_str_temp1, conf_str_temp2
+        self.var: IntVar | None = None
+        self.entry1: _BaseText | None = None
+        self.entry2: _BaseText | None = None
+        self.but_ok: Button | None = None
+        self.but_cancel: Button | None = None
+        self.err_message: WidgetToolTip | None = None
+        super().__init__(parent)
+
+    def config(self) -> None:
+        self.window.title(self.title)
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack()
+
+        downframe = _BaseFrame(upframe)
+        downframe.grid(padx=12, pady=12, row=1)
+
+        hint1 = Label(downframe, font=FONT_SANS_SMALL, text=self.hint1)
+        hint1.configure(state=STATE_DISABLED)
+        hint1.grid(row=0, column=0, columnspan=15)
+        _ = _BaseText(textvariable=StringVar(rootm(), str(self.baseval[0]), CVARS[self.conf_str1]))
+        self.entry1 = _BaseText(downframe, font=FONT_SANS_MEDIUM, width=38,
+                                textvariable=StringVar(rootm(), '', CVARS[self.conf_str_temp1]),
+                                bindings={BUT_RETURN: lambda _: self.ok()})
+        self.entry1.insert(END, str(self.baseval[0]))
+        self.err_message = _attach_tooltip(self.entry1, TOOLTIP_INVALID_SYNTAX, 3000, timed=True)
+        self.entry1.grid(row=1, column=3, columnspan=10)
+
+        hint2 = Label(downframe, font=FONT_SANS_SMALL, text=self.hint2)
+        hint2.configure(state=STATE_DISABLED)
+        hint2.grid(row=3, column=0, columnspan=15)
+        _ = _BaseText(textvariable=StringVar(rootm(), str(self.baseval[1]), CVARS[self.conf_str2]))
+        self.entry2 = _BaseText(downframe, font=FONT_SANS_MEDIUM, width=19,
+                                textvariable=StringVar(rootm(), '', CVARS[self.conf_str_temp2]),
+                                bindings={BUT_RETURN: lambda _: self.ok()})
+        self.entry2.insert(END, str(self.baseval[1]))
+        self.err_message = _attach_tooltip(self.entry2, TOOLTIP_INVALID_SYNTAX, 3000, timed=True)
+        self.entry2.grid(row=4, column=3, columnspan=10)
+
+        _BaseFrame(downframe, height=16).grid(row=5, columnspan=15)
+
+        self.but_ok = Button(downframe, width=8, text='Ok', command=self.ok)
+        self.but_cancel = Button(downframe, width=8, text='Cancel', command=self.cancel)
+        self.but_ok.grid(row=6, column=3, columnspan=5)
+        self.but_cancel.grid(row=6, column=8, columnspan=5)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 2
+        y = self._parent.winfo_y() + 50
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.update()
+        self.window.transient(self._parent)
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+        self.window.bind(BUT_RETURN, lambda _: self.ok())
+        self.window.bind(BUT_ESCAPE, lambda _: self.cancel())
+        self.window.bind(BUT_CTRL_A, lambda _: self._select_all())
+
+    def _select_all(self) -> None:
+        if self.visible is True:
+            self.entry1.focus_set()
+            self.entry1.select_all()
+
+    def ok(self) -> None:
+        try:
+            # Value validation
+            key = str(getrootconf(self.conf_str_temp1))
+            user_id = str(getrootconf(self.conf_str_temp2))
+            _ = str(valid_api_key(f'{key},{user_id}'))
+            setrootconf(self.conf_str1, key)
+            setrootconf(self.conf_str2, user_id)
+            self.hide()
+        except Exception:
+            self.err_message.showtip()
+
+    def cancel(self) -> None:
+        setrootconf(self.conf_str_temp1, str(getrootconf(self.conf_str1)))
+        setrootconf(self.conf_str_temp2, str(getrootconf(self.conf_str2)))
+        self.hide()
+
+    def ask(self) -> None:
+        if self.visible is False:
+            self._show()
+            self._select_all()
+
+    def on_destroy(self) -> None:
+        self.cancel()
+
+
+class _ApiKeyWindow(_APIRequestStrIntWindow):
+    def __init__(self, parent) -> None:
+        super().__init__(parent, 'API Key (selected module)', 'Key', 'User ID (number) or login', ('', ''),
+                         Options.APIKEY_KEY, Options.APIKEY_USERID, Options.APIKEY_KEY_TEMP, Options.APIKEY_USERID_TEMP)
+
+
+class _BaseTreeView(ttk.Treeview, TkinterDnD.DnDWrapper):
+    def __init__(self, parent, **kwargs) -> None:
+        super().__init__(parent, **kwargs)
+
+    @staticmethod
+    def prevent_resize(event) -> str:
+        if event.widget.identify_region(event.x, event.y) == 'separator':  # and event.widget.identify_column(event.x)[1:] in '01':
+            return 'break'
+        return 'move'
+
+
+class _TableFillColumn(NamedTuple):
+    id_: str
+    text: str
+    width: int
+    stretch: bool
+
+
+class _TableFillRow(TypedDict):
+    is_heading: bool
+    op_buttons: tuple[Button, Button, Button, Button]
+    text: str
+    is_negative: Checkbutton
+    del_button: Button
+
+
+class _TableFillWindow(_BaseWindow):
+    SIZE_LIMIT = (10, 50)
+
+    def __init__(self, parent, title: str, *, row_height: int, columns: tuple[_TableFillColumn, ...]) -> None:
+        self._title = title
+        self._row_height = row_height
+        self._columns: tuple[_TableFillColumn, ...] = columns
+        self._rows: dict[str, _TableFillRow] = {}
+        self._variables_is_negative: dict[str, BooleanVar] = {}
+        self._style = ttk.Style()
+        self._tree_frame: _BaseTreeView | None = None
+        self._op_buttons: list[Button] = []
+        self._text_idx = columns.index(next(_ for _ in columns if _.stretch is True)) - 1
+        self._edit_entry: ttk.Entry | None = None
+        self._text_qbuilder: Text | None = None
+        self._but_pushtottags: Button | None = None
+        self._err_message: WidgetToolTip | None = None
+        super().__init__(parent)
+
+    def config(self) -> None:
+        self.window.title(self._title)
+
+        upframe = _BaseFrame(self.window)
+        upframe.pack(fill=BOTH, expand=True)
+
+        downframe = _BaseFrame(upframe)
+        downframe.pack(fill=BOTH, expand=True)
+
+        s = self._style
+        s.configure('Treeview.Heading', rowheight=self._row_height)
+        s.configure('Treeview', rowheight=self._row_height)
+
+        self._tree_frame = _BaseTreeView(downframe,
+                                         columns=[_.id_ for _ in self._columns[1:]],
+                                         selectmode='none', height=self.SIZE_LIMIT[0])
+        self._tree_frame.parent_widget = self
+        self._tree_frame.drop_target_register(DND_ALL)
+        self._tree_frame.dnd_bind('<<Drop>>', self._on_drop)
+
+        self._tree_frame.bind('<Motion>', self._tree_frame.prevent_resize)
+        self._tree_frame.bind('<Button-1>', self._tree_frame.prevent_resize)
+        self._tree_frame.bind('<Double-1>', self._on_double_click)
+
+        for i, c in enumerate(self._columns):
+            self._tree_frame.heading(c.id_, text=c.text)
+            self._tree_frame.column(f'#{i}', width=c.width, minwidth=c.width, stretch=c.stretch, anchor=CENTER)
+
+        self._tree_frame.pack(fill=BOTH, expand=True, padx=8, pady=8, ipadx=0)
+
+        self._text_qbuilder = Text(downframe, font=FONT_SANS_SMALL, relief=SUNKEN, bd=0, bg=rootm().default_bg_color, height=2, width=0)
+        self._text_qbuilder.pack(fill=X, expand=True, padx=8, pady=2)
+
+        self._but_pushtottags = Button(downframe, width=16, text='Push to tags', command=self.ok)
+        self._but_pushtottags.pack(pady=16)
+
+        self._err_message = _attach_tooltip(self._but_pushtottags, TOOLTIP_INVALID_TAGS, 5000, timed=True)
+
+        self.window.configure(bg=self._parent.default_bg_color)
+
+    def finalize(self) -> None:
+        x = self._parent.winfo_x() + (self._parent.winfo_width() - self.window.winfo_reqwidth()) / 2
+        y = self._parent.winfo_y() + 20
+        self.window.geometry(f'+{x:.0f}+{y:.0f}')
+        self.window.update()
+        self.window.transient(self._parent)
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+        self.window.resizable(False, False)
+        self.window.bind(BUT_ESCAPE, lambda _: self.cancel())
+        self._update_query_text()
+
+    def ok(self) -> None:
+        tags_valid = self._update_query_text(False)
+        if not tags_valid:
+            self._err_message.showtip()
+            return
+        self._push_to_tags()
+        self.toggle_visibility()
+
+    def cancel_edit(self) -> bool:
+        if self._edit_entry:
+            self._edit_entry.destroy()
+            self._edit_entry = None
+            return True
+        return False
+
+    def cancel(self) -> None:
+        if not self.cancel_edit():
+            self.hide()
+
+    def on_destroy(self) -> None:
+        self.cancel_edit()
+        self.cancel()
+
+    def toggle_visibility(self) -> None:
+        if self.visible is True:
+            self.hide()
+        else:
+            self._show()
+        setrootconf(Options.ISQUERYBUILDEROPEN, self.visible)
+
+    @staticmethod
+    def _on_double_click(event) -> None:
+        event.widget.parent_widget.edit_cell(event.x, event.y)
+
+    @staticmethod
+    def _on_edit_entry_focus_out(event) -> None:
+        event.widget.master.parent_widget.edit_cell_finish()
+
+    @staticmethod
+    def _on_drop(event) -> str:
+        event_str = event.data.replace('\0', '')
+        has_href = ' href="' in event_str
+        has_body = '<body' in event_str
+        if has_href or has_body:
+            from bs4 import BeautifulSoup
+            if has_href:  # parse raw html tag not processed by tkdnd internals
+                # noinspection PyTypeChecker
+                event_str = BeautifulSoup(event_str).find(attrs={'href': True})['href']
+            elif has_body:  # parse HTML buggily dragged into the window
+                event_str = BeautifulSoup(event_str).find('body').get_text('\n')
+            for c in '\n\r ':
+                while f'{c}{c}' in event_str:
+                    event_str = event_str.replace(f'{c}{c}', c)
+                if c != ' ':
+                    event_str = event_str.replace(c, ' ')
+            event_str = event_str.strip()
+        strings_to_append: list[str] = []
+        values: tuple[str, ...] = event.widget.tk.splitlist(event_str)
+        err_values: list[str] = []
+        for value in values:
+            parsed = analyze_dnd_string(value)
+            if parsed.is_invalid():
+                err_values.append(value)
+                continue
+            strings_to_append.extend(parsed.tags)
+        for astring in strings_to_append:
+            if not event.widget.parent_widget.add_row(len(event.widget.get_children()) + 1, astring):
+                break
+        if err_values:
+            messagebox.showwarning('Nope', '\n'.join(['Unable to parse:', *err_values]))
+        return 'copy'
+
+    def edit_cell(self, x: int, y: int) -> None:
+        click_area = self._tree_frame.identify_region(x, y)
+        if click_area not in ('tree', 'cell'):
+            return
+
+        column = self._tree_frame.identify_column(x)  # '#0', '#1', etc.
+        if column != f'#{self._text_idx + 1}':
+            return
+        iid = self._tree_frame.focus()
+        cur_item = self._tree_frame.item(iid)
+        cur_text = cur_item['values'][self._text_idx]
+        elem_bbox = self._tree_frame.bbox(iid, column)
+
+        if self._edit_entry:
+            self._edit_entry.destroy()
+
+        self._edit_entry = ttk.Entry(self._tree_frame, justify=CENTER)
+        self._edit_entry.insert(0, cur_text)
+        self._edit_entry.selection_range(0, END)
+        self._edit_entry.focus_set()
+        self._edit_entry.place_configure(anchor=CENTER, x=elem_bbox[0] + elem_bbox[2] // 2, y=elem_bbox[1] + elem_bbox[3] // 2,
+                                         width=elem_bbox[2], height=elem_bbox[3])
+        self._edit_entry.bind('<FocusOut>', self._on_edit_entry_focus_out)
+        self._edit_entry.bind('<Return>', self._on_edit_entry_focus_out)
+
+    def edit_cell_finish(self) -> None:
+        y_coord = self._edit_entry.winfo_y() + 1
+        text = self._edit_entry.get()
+        self._edit_entry.destroy()
+        self._edit_entry = None
+
+        iid = self._tree_frame.identify_row(y_coord)
+        assert iid in self._rows
+        self._rows[iid]['text'] = text
+        values = self._tree_frame.item(iid)['values']
+        values[self._text_idx] = text
+        self._tree_frame.item(iid, values=values)
+
+    def add_row(self, row_n: int, text: str, is_heading=False, group='') -> bool:
+        if len(self._tree_frame.get_children()) >= self.SIZE_LIMIT[1]:
+            messagebox.showwarning('Nope', f'Can\'t add more than {self.SIZE_LIMIT[1]} tags!')
+            return False
+
+        if is_heading:
+            iid = self._tree_frame.insert(group, END, values=(*('' for _ in range(self._text_idx)), text))
+        else:
+            iid = self._tree_frame.insert(group, END, values=(*('' for _ in range(self._text_idx)), text))
+            self._tree_frame.item(iid, tags=iid)
+
+        def get_widget_pos(column_idx: int) -> tuple[int, int]:
+            bbox = self._sum_widths(column_idx) + 1, 25 + self._row_height * (row_n - 1), self._columns[column_idx].width, self._row_height
+            return bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2
+
+        init_xb, init_yb = get_widget_pos(1)
+        op_buttons: list[Button] = []
+        for i, vals in enumerate(zip(
+            (Icons.UP, Icons.UP2, Icons.DOWN2, Icons.DOWN),
+            (lambda: self._move_row_first(iid), lambda: self._move_row_up(iid),
+             lambda: self._move_row_down(iid), lambda: self._move_row_last(iid)),
+            strict=True),
+        ):
+            icon, func = vals
+            bwidth = self._columns[i + 1].width
+            b = Button(self._tree_frame, image=get_icon(icon), command=func, height=self._row_height, width=bwidth, borderwidth=0)
+            b.place_configure(anchor=CENTER, x=init_xb + bwidth * i, y=init_yb, height=self._row_height, width=bwidth, bordermode='inside')
+            op_buttons.append(b)
+
+        init_xn, init_yn = get_widget_pos(6)
+        self._variables_is_negative[iid] = BooleanVar(self._parent, False)
+        n = Checkbutton(self._tree_frame, variable=self._variables_is_negative[iid], borderwidth=0)
+        nwidth = self._columns[6].width
+        n.place_configure(anchor=CENTER, x=init_xn, y=init_yn, height=self._row_height, width=nwidth)
+
+        init_xd, init_yd = get_widget_pos(7)
+        dwidth = self._columns[7].width
+        d = Button(self._tree_frame, image=get_icon(Icons.DELETE), height=self._row_height, width=dwidth, borderwidth=0,
+                   command=lambda: self._delete_row(iid))
+        d.place_configure(anchor=CENTER, x=init_xd, y=init_yd, height=self._row_height, width=dwidth)
+
+        assert iid not in self._rows
+        op_buttons_t = (op_buttons[0], op_buttons[1], op_buttons[2], op_buttons[3])
+        self._rows[iid] = _TableFillRow(is_heading=is_heading, op_buttons=op_buttons_t, text=text, is_negative=n, del_button=d)
+        self._update_window_size()
+        return True
+
+    def _delete_row(self, iid: str) -> None:
+        assert iid in self._rows
+        next_iid = iid
+        while next_iid := self._tree_frame.next(next_iid):
+            for nrw in self._get_row_widgets(next_iid):
+                nrw.place_configure(y=nrw.winfo_y() - self._row_height // 2)
+
+        self._tree_frame.delete(iid)
+        for w in self._get_row_widgets(iid):
+            w.destroy()
+        del self._rows[iid]
+        self._update_window_size()
+
+    def _move_row_first(self, iid: str) -> None:
+        assert iid in self._rows
+        prev_iid = last_iid = iid
+        while prev_iid := self._tree_frame.prev(prev_iid):
+            last_iid = prev_iid
+            for nrw in self._get_row_widgets(prev_iid):
+                nrw.place_configure(y=nrw.winfo_y() + self._row_height + self._row_height // 2)
+        frw = self._get_row_widgets(last_iid)[0]
+        for crw in self._get_row_widgets(iid):
+            crw.place_configure(y=frw.winfo_y() + self._row_height // 2)
+        self._tree_frame.move(iid, '', 0)
+
+    def _move_row_up(self, iid: str) -> None:
+        assert iid in self._rows
+        if prev_iid := self._tree_frame.prev(iid):
+            for prw in self._get_row_widgets(prev_iid):
+                prw.place_configure(y=prw.winfo_y() + self._row_height + self._row_height // 2)
+            for crw in self._get_row_widgets(iid):
+                crw.place_configure(y=crw.winfo_y() - self._row_height // 2)
+            self._tree_frame.move(iid, '', self._tree_frame.index(iid) - 1)
+
+    def _move_row_down(self, iid: str) -> None:
+        assert iid in self._rows
+        if next_iid := self._tree_frame.next(iid):
+            for nrw in self._get_row_widgets(next_iid):
+                nrw.place_configure(y=nrw.winfo_y() - self._row_height // 2)
+            for crw in self._get_row_widgets(iid):
+                crw.place_configure(y=crw.winfo_y() + self._row_height + self._row_height // 2)
+            self._tree_frame.move(iid, '', self._tree_frame.index(iid) + 1)
+
+    def _move_row_last(self, iid: str) -> None:
+        assert iid in self._rows
+        next_iid = last_iid = iid
+        while next_iid := self._tree_frame.next(next_iid):
+            last_iid = next_iid
+            for nrw in self._get_row_widgets(next_iid):
+                nrw.place_configure(y=nrw.winfo_y() - self._row_height // 2)
+        frw = self._get_row_widgets(last_iid)[0]
+        for crw in self._get_row_widgets(iid):
+            crw.place_configure(y=frw.winfo_y() + self._row_height // 2)
+        self._tree_frame.move(iid, '', self.SIZE_LIMIT[1])
+
+    def _push_to_tags(self) -> None:
+        get_global(Globals.FIELD_TAGS).settext(self._text_qbuilder.get(1.0, END).strip())
+
+    def _sum_widths(self, before_idx: int) -> int:
+        return sum(self._columns[_].width for _ in range(before_idx))
+
+    def _get_row_widgets(self, iid: str) -> list[Button | Checkbutton]:
+        assert iid in self._rows
+        return [*self._rows[iid]['op_buttons'], self._rows[iid]['is_negative'], self._rows[iid]['del_button']]
+
+    def _update_window_size(self) -> None:
+        self._tree_frame.configure(height=min(self.SIZE_LIMIT[1], max(self.SIZE_LIMIT[0], len(self._rows))))
+        self.window.minsize(self.window.winfo_reqwidth(), self.window.winfo_reqheight())
+
+    def _update_query_text(self, start_loop=True) -> bool:
+        tags: list[str] = []
+        # TODO: add composition rules: groups, etc.
+        for iid in self._tree_frame.get_children():
+            assert iid in self._rows
+            row = self._rows[iid]
+            is_negative = self._variables_is_negative[iid].get()
+            tag = f'-{row["text"]}' if is_negative and not row['text'].startswith(('id:', 'id=')) else row['text']
+            tag_valid, _ = parse_tags(tag)
+            tags.append(tag)
+            self._tree_frame.tag_configure(iid, background=('red', 'white')[tag_valid])
+        tags_valid, seq = parse_tags(' '.join(tags))
+        newstr = ' '.join(seq)
+        oldstr = self._text_qbuilder.get(1.0, END)
+        if oldstr != f'{newstr}\n':
+            self._text_qbuilder.configure(state=STATE_NORMAL)
+            self._text_qbuilder.delete(1.0, END)
+            self._text_qbuilder.insert(1.0, newstr)
+            self._text_qbuilder.configure(state=STATE_DISABLED)
+        if start_loop:
+            self.window.after(int(GUI2_UPDATE_DELAY_DEFAULT * 3), self._update_query_text)
+        return tags_valid
+
+
+class _QueryBuilderWindow(_TableFillWindow):
+    def __init__(self, parent) -> None:
+        super().__init__(parent, 'Query Builder', row_height=18, columns=(
+            _TableFillColumn('#0', 'Group', 80, False),
+            *(_TableFillColumn(f'op{_}', '', 20, False) for _ in range(1, 4 + 1)),
+            _TableFillColumn('tag', 'Tag', 200, True),
+            _TableFillColumn('neg', 'Negative', 60, False),
+            _TableFillColumn('del', '', 20, False)))
+
+
+def init_additional_windows() -> None:
+    global _window_log
+    global _window_proxy
+    global _window_hcookies
+    global _window_timeout
+    global _window_retries
+    global _window_apikey
+    global _window_qbuilder
+    _window_log = _LogWindow(_root)
+    _window_log.window.wm_protocol('WM_DELETE_WINDOW', _window_log.on_destroy)
+    _window_proxy = _ProxyWindow(_root)
+    _window_proxy.window.wm_protocol('WM_DELETE_WINDOW', _window_proxy.on_destroy)
+    _window_hcookies = _HeadersAndCookiesWindow(_root)
+    _window_hcookies.window.wm_protocol('WM_DELETE_WINDOW', _window_hcookies.on_destroy)
+    _window_timeout = _ConnectionTimeoutWindow(_root)
+    _window_timeout.window.wm_protocol('WM_DELETE_WINDOW', _window_timeout.on_destroy)
+    _window_retries = _ConnectionRetriesWindow(_root)
+    _window_retries.window.wm_protocol('WM_DELETE_WINDOW', _window_retries.on_destroy)
+    _window_apikey = _ApiKeyWindow(_root)
+    _window_apikey.window.wm_protocol('WM_DELETE_WINDOW', _window_apikey.on_destroy)
+    _window_qbuilder = _QueryBuilderWindow(_root)
+    _window_qbuilder.window.wm_protocol('WM_DELETE_WINDOW', _window_qbuilder.on_destroy)
+
+
+def register_menu(label: str, menu_id: Menus = None) -> Menu:
+    global _c_menu
+    menu = _BaseMenu(_rootMenu)
+    # register in global container for later
+    if menu_id and menu_id in menu_items:
+        menu_items[menu_id].menu = menu
+    root_menum().add_cascade(menu=menu, label=label)
+    _c_menu = menu
+    return menu
+
+
+def register_submenu(label: str) -> Menu:
+    global _c_submenu
+    submenu = _BaseMenu(_rootMenu)
+    c_menum().add_cascade(menu=submenu, label=label)
+    _c_submenu = submenu
+    return submenu
+
+
+def getrootconf(index: Options) -> int | str:
+    return rootm().getvar(CVARS[index])
+
+
+def setrootconf(index: Options, value: int | str | bool) -> None:
+    return rootm().setvar(CVARS[index], value)
+
+
+def rootm() -> _AppRoot:
+    assert _root is not None
+    return _root
+
+
+def root_framem() -> _BaseFrame:
+    assert _rootFrame is not None
+    return _rootFrame
+
+
+def root_menum() -> Menu:
+    assert _rootMenu is not None
+    return _rootMenu
+
+
+def c_menum() -> _BaseMenu:
+    assert _c_menu is not None
+    return _c_menu
+
+
+def c_submenum() -> _BaseMenu:
+    assert _c_submenu is not None
+    return _c_submenu
+
+
+def window_logm() -> _LogWindow:
+    assert _window_log is not None
+    return _window_log
+
+
+def window_proxym() -> _ProxyWindow:
+    assert _window_proxy is not None
+    return _window_proxy
+
+
+def window_hcookiesm() -> _HeadersAndCookiesWindow:
+    assert _window_hcookies is not None
+    return _window_hcookies
+
+
+def window_timeoutm() -> _ConnectionTimeoutWindow:
+    assert _window_timeout is not None
+    return _window_timeout
+
+
+def window_retriesm() -> _ConnectionRetriesWindow:
+    assert _window_retries is not None
+    return _window_retries
+
+
+def window_apikeym() -> _ApiKeyWindow:
+    assert _window_apikey is not None
+    return _window_apikey
+
+
+def window_qbuilderm() -> _QueryBuilderWindow:
+    assert _window_qbuilder is not None
+    return _window_qbuilder
+
+
+def text_cmdm() -> Text:
+    assert _text_cmd is not None
+    return _text_cmd
+
+
+# noinspection PyPep8Naming
+def _CreateRoot() -> None:
+    global _root
+    assert _root is None
+    _root = _AppRoot()
+
+
+# noinspection PyPep8Naming
+def GetRoot() -> _AppRoot | None:
+    return _root
+
+
+def _rotate_image_90(image: PhotoImage) -> PhotoImage:
+    height, width = image.height(), image.width()
+    new_image = PhotoImage(width=height, height=width)
+    for x in range(width):
+        for y in range(height):
+            r, g, b = image.get(x, y)
+            new_image.put(f'#{r:02X}{g:02X}{b:02X}', (height - (y + 1), x))
+    return new_image
+
+
+def _flip_image_h(image: PhotoImage) -> PhotoImage:
+    height, width = image.height(), image.width()
+    new_image = PhotoImage(width=width, height=height)
+    for x in range(width):
+        for y in range(height):
+            r, g, b = image.get(x, y)
+            new_image.put(f'#{r:02X}{g:02X}{b:02X}', (width - (x + 1), y))
+    return new_image
+
+
+def create_base_window_widgets() -> None:
+    global _text_cmd
+
+    _CreateRoot()
+
+    # icons
+    _icons[Icons.LYNXX] = PhotoImage(data=base64.b64decode(IMG_PROC_LYNXX_DATA))
+    _icons[Icons.RS] = PhotoImage(data=base64.b64decode(IMG_PROC_RS_DATA))
+    _icons[Icons.RN] = PhotoImage(data=base64.b64decode(IMG_PROC_RN_DATA))
+    _icons[Icons.RP] = PhotoImage(data=base64.b64decode(IMG_PROC_RP_DATA))
+    _icons[Icons.EN] = PhotoImage(data=base64.b64decode(IMG_PROC_EN_DATA))
+    _icons[Icons.XB] = PhotoImage(data=base64.b64decode(IMG_PROC_XB_DATA))
+    _icons[Icons.BB] = PhotoImage(data=base64.b64decode(IMG_PROC_BB_DATA))
+    _icons[Icons.RX] = PhotoImage(data=base64.b64decode(IMG_PROC_RX_DATA))
+    _icons[Icons.OPEN] = PhotoImage(data=base64.b64decode(IMG_OPEN_DATA))
+    _icons[Icons.SAVE] = PhotoImage(data=base64.b64decode(IMG_SAVE_DATA))
+    _icons[Icons.DELETE] = PhotoImage(data=base64.b64decode(IMG_DELETE_DATA))
+    _icons[Icons.ADD] = PhotoImage(data=base64.b64decode(IMG_ADD_DATA))
+    _icons[Icons.LEFT] = PhotoImage(data=base64.b64decode(IMG_LEFT_DATA))
+    _icons[Icons.RIGHT] = _flip_image_h(_icons[Icons.LEFT])
+    _icons[Icons.UP] = _rotate_image_90(_icons[Icons.LEFT])
+    _icons[Icons.DOWN] = _rotate_image_90(_icons[Icons.RIGHT])
+    _icons[Icons.LEFT2] = PhotoImage(data=base64.b64decode(IMG_LEFT2_DATA))
+    _icons[Icons.RIGHT2] = _flip_image_h(_icons[Icons.LEFT2])
+    _icons[Icons.UP2] = _rotate_image_90(_icons[Icons.LEFT2])
+    _icons[Icons.DOWN2] = _rotate_image_90(_icons[Icons.RIGHT2])
+    _icons[Icons.TEXT] = PhotoImage(data=base64.b64decode(IMG_TEXT_DATA))  # unused
+
+    rootm().iconphoto(True, get_icon(Icons.LYNXX))
+
+    # validators
+    _string_vars[CVARS[Options.LASTPATH]] = StringVar(rootm(), '', CVARS[Options.LASTPATH])
+    _string_vars[CVARS[Options.TAGLISTS_PATH]] = StringVar(rootm(), '', CVARS[Options.TAGLISTS_PATH])
+
+    # Options #
+    opframe_main = ttk.LabelFrame(root_framem(), text='Download options')
+    opframe_main.grid(row=_cur_row(), column=_cur_column(), rowspan=1, columnspan=COLUMNSPAN_MAX,
+                      sticky=STICKY_HORIZONTAL, padx=PADDING_DEFAULT, pady=PADDING_DEFAULT)
+    #  Videos
+    opframe_vid = ttk.LabelFrame(opframe_main, text='Videos')
+    opframe_vid.grid(row=_cur_row(), column=_cur_column(), rowspan=1, columnspan=1,
+                     sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_vid = ttk.Combobox(opframe_vid, values=OPTION_VALUES_VIDEOS, state=STATE_READONLY, width=14 if IS_WIN else 12,
+                          textvariable=StringVar(rootm(), '', CVARS[Options.VIDSETTING]))
+    _register_global(Globals.COMBOBOX_VIDEOS, op_vid)
+    _attach_tooltip(op_vid, TOOLTIP_VIDEOS)
+    op_vid.current(3)
+    op_vid.pack(padx=1, pady=3)
+    #  Images
+    opframe_img = ttk.LabelFrame(opframe_main, text='Images')
+    opframe_img.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                     sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_img = ttk.Combobox(opframe_img, values=OPTION_VALUES_IMAGES, state=STATE_READONLY, width=14 if IS_WIN else 12,
+                          textvariable=StringVar(rootm(), '', CVARS[Options.IMGSETTING]))
+    _register_global(Globals.COMBOBOX_IMAGES, op_img)
+    _attach_tooltip(op_img, TOOLTIP_IMAGES)
+    op_img.current(len(OPTION_VALUES_IMAGES) - 1)
+    op_img.pack(padx=1, pady=3)
+    #  Date min
+    opframe_datemin = ttk.LabelFrame(opframe_main, text='Date min')
+    opframe_datemin.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                         sticky=STICKY_HORIZONTAL, padx=1, pady=PADDING_DEFAULT, ipadx=0)
+    op_datemin_t = _BaseText(opframe_datemin, width=10, textvariable=StringVar(rootm(), '', CVARS[Options.DATEMIN]))
+    _register_global(Globals.FIELD_DATEMIN, op_datemin_t)
+    op_datemin_t.insert(END, DATE_MIN_DEFAULT)
+    op_datemin_t.pack(padx=1, pady=PADDING_DEFAULT * (1.5 if IS_WIN else 1))
+    _attach_tooltip(op_datemin_t, TOOLTIP_DATE)
+    #  Date max
+    opframe_datemax = ttk.LabelFrame(opframe_main, text='Date max')
+    opframe_datemax.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                         sticky=STICKY_HORIZONTAL, padx=1, pady=PADDING_DEFAULT, ipadx=0)
+    op_datemax_t = _BaseText(opframe_datemax, width=10, textvariable=StringVar(rootm(), '', CVARS[Options.DATEMAX]))
+    _register_global(Globals.FIELD_DATEMAX, op_datemax_t)
+    op_datemax_t.insert(END, DATE_MAX_DEFAULT)
+    op_datemax_t.pack(padx=1, pady=PADDING_DEFAULT * (1.5 if IS_WIN else 1))
+    _attach_tooltip(op_datemax_t, TOOLTIP_DATE)
+    #  Parent posts / child posts
+    opframe_parch = ttk.LabelFrame(opframe_main, text='Parent posts / child posts')
+    opframe_parch.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                       sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_parch = ttk.Combobox(opframe_parch, values=OPTION_VALUES_PARCHI, state=STATE_READONLY, width=21 if IS_WIN else 18,
+                            textvariable=StringVar(rootm(), '', CVARS[Options.PARCHISETTING]))
+    _register_global(Globals.COMBOBOX_PARCHI, op_parch)
+    _attach_tooltip(op_parch, TOOLTIP_PARCHI)
+    op_parch.current(len(OPTION_VALUES_PARCHI) - 2)
+    op_parch.pack(padx=1, pady=3)
+    #  Threading
+    opframe_thread = ttk.LabelFrame(opframe_main, text='Threading')
+    opframe_thread.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                        sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_thread = ttk.Combobox(opframe_thread, values=OPTION_VALUES_THREADING, state=STATE_READONLY, width=9,
+                             textvariable=StringVar(rootm(), '', CVARS[Options.THREADSETTING]))
+    _register_global(Globals.COMBOBOX_THREADING, op_thread)
+    _attach_tooltip(op_thread, TOOLTIP_THREADING)
+    op_thread.current(len(OPTION_VALUES_THREADING) - 1)
+    op_thread.pack(padx=1, pady=3)
+    #  Download order
+    opframe_dorder = ttk.LabelFrame(opframe_main, text='Download order')
+    opframe_dorder.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=1,
+                        sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_dorder = ttk.Combobox(opframe_dorder, values=OPTION_VALUES_DOWNLOAD_ORDER, state=STATE_READONLY, width=13 if IS_WIN else 12,
+                             textvariable=StringVar(rootm(), '', CVARS[Options.DOWNLOAD_ORDER]))
+    _register_global(Globals.COMBOBOX_DOWNLOAD_ORDER, op_dorder)
+    _attach_tooltip(op_dorder, TOOLTIP_DOWNLOAD_ORDER)
+    op_dorder.current(0)
+    op_dorder.pack(padx=1, pady=3)
+    #  Download limit
+    opframe_dlimit = ttk.LabelFrame(opframe_main, text='Posts limit')
+    opframe_dlimit.grid(row=_cur_row(), column=_next_column(), rowspan=1, columnspan=COLUMNSPAN_MAX - 7,
+                        sticky=STICKY_HORIZONTAL, padx=1, pady=0, ipadx=0)
+    op_dlimit = ttk.Entry(opframe_dlimit, width=0, textvariable=StringVar(rootm(), '', CVARS[Options.DOWNLOAD_LIMIT]), justify='center')
+    _register_global(Globals.FIELD_DOWNLOAD_LIMIT, op_dlimit)
+    op_dlimit.pack(expand=NO, fill=X, padx=1, pady=3)
+    _attach_tooltip(op_dlimit, TOOLTIP_DOWNLOAD_LIMIT)
+
+    # Tags #
+    opframe_tags = ttk.LabelFrame(root_framem(), text='Tags')
+    opframe_tags.grid(row=_next_row(), column=_first_column(), columnspan=COLUMNSPAN_MAX,
+                      sticky=STICKY_HORIZONTAL, padx=PADDING_DEFAULT, pady=PADDING_DEFAULT)
+    #  Text
+    op_tagsstr = _BaseText(opframe_tags, width=0, font=FONT_LUCIDA_MEDIUM,
+                           textvariable=StringVar(rootm(), 'sfw', CVARS[Options.TAGS]))
+    _register_global(Globals.FIELD_TAGS, op_tagsstr)
+    op_tagsstr.pack(padx=2, pady=3, expand=YES, side=LEFT, fill=X)
+    #  Button check
+    op_tagsbutcheck = Button(opframe_tags, text='check')
+    _register_global(Globals.BUTTON_CHECKTAGS, op_tagsbutcheck)
+    op_tagsbutcheck.pack(padx=2, pady=3, expand=NO, side=LEFT)
+    _attach_tooltip(op_tagsbutcheck, TOOLTIP_TAGS_CHECK)
+    #  Button clear
+    op_tagsbutclear = Button(opframe_tags, text='clear', command=lambda: setrootconf(Options.TAGS, ''))
+    _register_global(Globals.BUTTON_CLEARTAGS, op_tagsbutclear)
+    op_tagsbutclear.pack(padx=2, pady=3, expand=NO, side=LEFT)
+
+    # Path #
+    opframe_path = ttk.LabelFrame(root_framem(), text='Path')
+    _register_global(Globals.FRAME_PATH, opframe_path)
+    opframe_path.grid(row=_next_row(), column=_first_column(), columnspan=COLUMNSPAN_MAX,
+                      sticky=STICKY_HORIZONTAL, padx=PADDING_DEFAULT, pady=0)
+    _grid_params[Globals.FRAME_PATH] = _GridInfo(**opframe_path.grid_info())
+    #  Text
+    op_pathstr = _BaseText(opframe_path, width=0, font=FONT_LUCIDA_MEDIUM, textvariable=StringVar(rootm(), '', CVARS[Options.PATH_VISUAL]),
+                           encodevariable=StringVar(rootm(), '', CVARS[Options.PATH]))
+    _register_global(Globals.FIELD_PATH, op_pathstr)
+    op_pathstr.insert(END, pathlib.Path().resolve().as_posix())
+    op_pathstr.pack(padx=2, pady=3, expand=YES, side=LEFT, fill=X)
+    #  Button open
+    op_pathbut = Button(opframe_path, image=get_icon(Icons.OPEN))
+    _register_global(Globals.BUTTON_OPENFOLDER, op_pathbut)
+    op_pathbut.pack(padx=2, pady=3, expand=NO, side=LEFT)
+    # Button expand
+    op_pathoptbut = Button(opframe_path, image=get_icon(Icons.LEFT))
+    _register_global(Globals.BUTTON_PATHOPTIONS, op_pathoptbut)
+    op_pathoptbut.pack(padx=2, pady=3, expand=NO, side=LEFT)
+    # Path options #
+    opframe_pathopts = ttk.LabelFrame(root_framem(), text='Videos / Images subfolders')
+    _register_global(Globals.FRAME_PATHOPTS, opframe_pathopts)
+    _grid_params[Globals.FRAME_PATHOPTS] = _GridInfo(
+        row=_cur_row(), rowspan=1, column=COLUMNSPAN_MAX - COLUMNSPAN_MAX // 8, columnspan=COLUMNSPAN_MAX // 8, sticky=STICKY_HORIZONTAL,
+        padx=PADDING_DEFAULT, pady=0, ipadx=0, ipady=0)
+    #  Text vid
+    op_vidpath = _BaseText(opframe_pathopts, width=0, font=FONT_LUCIDA_MEDIUM, textvariable=StringVar(rootm(), '', CVARS[Options.VIDSUB]))
+    _register_global(Globals.FIELD_VIDSUB, op_vidpath)
+    op_vidpath.pack(padx=2, pady=3, expand=YES, side=LEFT, fill=X)
+    #  Text img
+    op_imgpath = _BaseText(opframe_pathopts, width=0, font=FONT_LUCIDA_MEDIUM, textvariable=StringVar(rootm(), '', CVARS[Options.IMGSUB]))
+    _register_global(Globals.FIELD_IMGSUB, op_imgpath)
+    op_imgpath.pack(padx=2, pady=3, expand=YES, side=LEFT, fill=X)
+
+    # Cmdline and _download button #
+    #  Cmdline  #
+    #   Note: global (not registered)
+    _text_cmd = Text(root_framem(), font=FONT_SANS_SMALL, relief=SUNKEN, bd=0, bg=rootm().default_bg_color, height=3, width=0)
+    text_cmdm().grid(row=_next_row(), column=_first_column(), columnspan=COLUMNSPAN_MAX - 1, rowspan=ROWSPAN_MAX,
+                     sticky=STICKY_ALLDIRECTIONS, padx=PADDING_DEFAULT * 2, pady=PADDING_DEFAULT)
+    #  Button _download  #
+    dw_but = Button(root_framem(), text='Download', width=10, font=FONT_SANS_MEDIUM)
+    dw_but.grid(row=_cur_row(), column=GLOBAL_COLUMNCOUNT - 1, columnspan=1, rowspan=ROWSPAN_MAX,
+                sticky=STICKY_ALLDIRECTIONS, padx=PADDING_DEFAULT * 3 - 1, pady=PADDING_DEFAULT * 2)
+    _register_global(Globals.BUTTON_DOWNLOAD, dw_but)
+
+    # This one is after root_frame
+    pb1 = ttk.Progressbar(rootm(), value=0, maximum=PROGRESS_BAR_MAX, mode='determinate', orient=HORIZONTAL,
+                          variable=IntVar(rootm(), 0, CVARS[Options.PROGRESS]))
+    pb1.pack(fill=X, expand=NO, anchor=S, pady=0, padx=0)
+
+    # This one is after progressbar
+    sb_frame = _BaseFrame(rootm())
+    sb_frame.pack(fill=X, expand=NO, anchor=S)
+
+    ib1 = Label(sb_frame, borderwidth=1, relief=FLAT, anchor=W, image=get_icon(Icons.RX))
+    ib1.pack(expand=NO, side=LEFT)
+    _register_global(Globals.MODULE_ICON, ib1)
+    _attach_tooltip(ib1, lambda: [_get_cur_module_sitename()], relief=FLAT)
+
+    sb1 = Label(sb_frame, borderwidth=1, relief=SUNKEN, anchor=W, text='Ready', bg=COLOR_DARKGRAY,
+                textvariable=StringVar(rootm(), '', CVARS[Options.STATUS]))
+    sb1.pack(fill=X, expand=NO)
+
+    # Safety precautions
+    if len(gobjects) < len(Globals):
+        messagebox.showinfo('', 'Not all GOBJECTS were registered')
+
+
+def get_global(index: Globals) -> Text | _BaseText | Button:
+    return gobjects[index]
+
+
+def config_global(index: Globals, **kwargs) -> None:
+    get_global(index).configure(kwargs)
+
+
+def is_global_disabled(index: Globals) -> bool:
+    return str(get_global(index).cget('state')) == STATE_DISABLED
+
+
+def config_menu(menu: Menus, submenu: SubMenus, **kwargs) -> None:
+    if gmenu := menu_items.get(menu):
+        gmenu.menu.entryconfigure(submenu.value, **kwargs)
+
+
+def is_menu_disabled(menu: Menus, submenu: SubMenus) -> bool:
+    if gmenu := menu_items.get(menu):
+        if submenu in gmenu.statefuls:
+            return gmenu.menu.entrycget(submenu.value, 'state') == STATE_DISABLED
+    return False
+
+
+def is_focusing(glob: Globals | Widget) -> bool:
+    try:
+        return rootm().focus_get() == (get_global(glob) if isinstance(glob, Globals) else glob)
+    except Exception:
+        return False
+
+
+def toggle_console() -> None:
+    global _console_shown
+    ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), not _console_shown)
+    _console_shown = not _console_shown
+
+
+def hotkey_text(option: Options) -> str:
+    return (hotkeys[option].strip('<>').replace('-', '+').upper()
+            .replace('CONTROL', 'Ctrl').replace('SHIFT', 'Shift')
+            .replace('ALT', 'Alt').replace('SPACE', 'Space'))
+
+
+def get_curdir(prioritize_last_path=True) -> pathlib.Path:
+    lastloc = pathlib.Path(getrootconf(Options.LASTPATH))
+    curloc = pathlib.Path(getrootconf(Options.PATH))
+    if prioritize_last_path:
+        myloc = (lastloc if (lastloc != pathlib.Path() and lastloc.is_dir()) else curloc).resolve()
+    else:
+        myloc = (curloc if (curloc != pathlib.Path() and curloc.is_dir()) else lastloc).resolve()
+    while not myloc.is_dir():
+        myloc = myloc.parent
+    return myloc
+
+
+def _get_cur_module_sitename() -> str:
+    if int(getrootconf(Options.REVEALNAMES)) == 0:
+        return ProcModule.name().upper()
+    return ((base64.b64decode(SITENAMES_PER_PROC_MODULE.get(ProcModule.value(), '')) or b'UNK/').decode()[:-1]
+            .replace('https://', '').replace('api.', ''))
+
+
+# def unfocus_buttons() -> None:
+#     unfocus_buttons_once()
+#     rootm().after(GUI2_UPDATE_DELAY_DEFAULT // 3, unfocus_buttons)
+
+
+def unfocus_buttons_once() -> None:
+    for g in global_unfocus:
+        if is_focusing(g):
+            rootm().focus_set()
+            break
+
+
+def help_tags(title='Tags') -> None:
+    messagebox.showinfo(title=title, message=HELP_TAGS_PER_PROC_MODULE[ProcModule.value()], icon='info')
+
+
+def help_about(title=f'About {APP_NAME}', message=ABOUT_MSG, icon='info') -> None:
+    messagebox.showinfo(title=title, message=message, icon=icon)
+
+
+def _ask_directory_path(*, initialdir: str | pathlib.Path, **kwargs) -> pathlib.Path | None:
+    if dirpath_base := filedialog.askdirectory(initialdir=initialdir, **kwargs):
+        return pathlib.Path(dirpath_base)
+    return None
+
+
+def ask_filename(ftypes: Iterable[tuple[str, str | Iterable[str]]]) -> str:
+    if fullpath := filedialog.askopenfilename(filetypes=ftypes, initialdir=get_curdir()):
+        setrootconf(Options.LASTPATH, pathlib.Path(fullpath).parent.as_posix())  # not bound
+        return fullpath
+    return ''
+
+
+def _ask_filename_path(ftypes: Iterable[tuple[str, str | Iterable[str]]]) -> pathlib.Path | None:
+    if filepath_base := ask_filename(ftypes):
+        return pathlib.Path(filepath_base)
+    return None
+
+
+def _ask_filename_path_text() -> pathlib.Path | None:
+    return _ask_filename_path((('Text files', '*.txt'), ('All files', '*.*')))
+
+
+def load_id_list() -> None:
+    if filepath := _ask_filename_path_text():
+        success, file_tags = prepare_id_list(filepath)
+        if success:
+            setrootconf(Options.TAGS, file_tags)
+            # reset settings for immediate downloading
+            setrootconf(Options.DATEMIN, DATE_MIN_DEFAULT)
+            setrootconf(Options.DATEMAX, DATE_MAX_DEFAULT)
+        else:
+            messagebox.showwarning(message=f'Unable to load ids from {filepath.name}!')
+
+
+def load_batch_download_tag_list() -> list[str]:
+    if filepath := _ask_filename_path_text():
+        success, file_tag_lists = prepare_tag_lists(filepath)
+        if success:
+            return file_tag_lists
+        else:
+            messagebox.showwarning(message=f'Unable to load tags from {filepath.name}!')
+    return []
+
+
+def browse_path() -> None:
+    if loc := _ask_directory_path(initialdir=get_curdir()):
+        setrootconf(Options.PATH, loc.as_posix())
+        setrootconf(Options.LASTPATH, loc.parent.as_posix())  # not bound
+        update_garbled_text_states()
+
+
+def update_garbled_text_states() -> None:
+    get_global(Globals.FIELD_PATH).update_encoded_state()
+
+
+def register_menu_command(label: str, command: Callable[[], None], hotkey_opt: Options = None, do_bind=False,
+                          icon: PhotoImage | None = None) -> None:
+    try:
+        accelerator = hotkey_text(hotkey_opt)
+    except Exception:
+        accelerator = None
+    c_menum().add_command(label=label, image=icon, compound=LEFT, command=command, accelerator=accelerator)
+    if accelerator and do_bind:
+        rootm().bind(hotkeys[hotkey_opt], func=lambda _: command())
+
+
+def register_submenu_command(label: str, command: Callable[[], None], hotkey_opt: Options = None, do_bind=False,
+                             icon: PhotoImage | None = None) -> None:
+    try:
+        accelerator = hotkey_text(hotkey_opt)
+    except Exception:
+        accelerator = None
+    c_submenum().add_command(label=label, image=icon, compound=LEFT, command=command, accelerator=accelerator)
+    if accelerator and do_bind:
+        rootm().bind(hotkeys[hotkey_opt], func=lambda _: command())
+
+
+def register_menu_checkbutton(label: str, varname: str,
+                              command: Callable[[], None] | None = None, hotkey: str | None = None) -> None:
+    if varname not in _bool_vars:
+        _bool_vars[varname] = BooleanVar(rootm(), False, name=varname)  # needed so it won't be discarded
+    c_menum().add_checkbutton(label=label, command=command, variable=_bool_vars[varname], accelerator=hotkey)
+
+
+def register_menu_radiobutton(label: str, varname: str, value: int,
+                              command: Callable[[], None] | None = None, hotkey: str | None = None) -> None:
+    if varname not in _int_vars:
+        _int_vars[varname] = IntVar(rootm(), value=value, name=varname)  # needed so it won't be discarded
+    c_menum().add_radiobutton(label=label, command=command, variable=_int_vars[varname], value=value, accelerator=hotkey)
+
+
+def register_submenu_radiobutton(label: str, varname: str, value: int,
+                                 command: Callable[[], None] | None = None, hotkey: str | None = None) -> None:
+    if varname not in _int_vars:
+        _int_vars[varname] = IntVar(rootm(), value=value, name=varname)  # needed so it won't be discarded
+    c_submenum().add_radiobutton(label=label, command=command, variable=_int_vars[varname], value=value, accelerator=hotkey)
+
+
+def register_menu_separator() -> None:
+    c_menum().add_separator()
+
+
+def ask_select_media_files_in_dir() -> tuple[pathlib.Path]:
+    files = filedialog.askopenfilenames(initialdir=get_curdir(), filetypes=(('All supported', KNOWN_EXTENSIONS_STR),))
+    return tuple(pathlib.Path(_) for _ in files)
+
+
+def get_media_files_dir() -> pathlib.Path | None:
+    return _ask_directory_path(initialdir=get_curdir(), mustexist=True)
+
+
+def update_lastpath(filefullpath: pathlib.Path) -> None:
+    setrootconf(Options.LASTPATH, filefullpath.parent.as_posix())
+
+
+def load_tags_db() -> bool:
+    taglists_path_base = str(getrootconf(Options.TAGLISTS_PATH))
+    last_path = pathlib.Path(taglists_path_base) if taglists_path_base else get_curdir()
+    if TagsDB.try_set_basepath(last_path):
+        setrootconf(Options.TAGLISTS_PATH, last_path.as_posix())
+        return True
+    else:
+        loc = _ask_directory_path(initialdir=last_path, mustexist=True,
+                                  title='Select a directory where tag lists are located (rx_tags.json, rn_tags.json, etc.)')
+        if loc and (not last_path or loc != last_path) and TagsDB.try_set_basepath(loc):
+            setrootconf(Options.TAGLISTS_PATH, loc.as_posix())
+            return True
+    return False
+
+
+def toggle_autocompletion() -> bool:
+    # current state is AFTER being toggled
+    if bool(int(getrootconf(Options.AUTOCOMPLETION_ENABLE))):
+        if load_tags_db():
+            return True
+        else:
+            setrootconf(Options.AUTOCOMPLETION_ENABLE, 0)
+            return False
+    else:
+        TagsDB.clear()
+        setrootconf(Options.TAGLISTS_PATH, '')
+        return True
+
+
+def trigger_autocomplete_tag() -> None:
+    get_global(Globals.FIELD_TAGS).on_event_ctrl_space()
+
+
+def set_bool_var(varopt: Options, val: bool) -> None:
+    _bool_vars[CVARS[varopt]].set(val)
+
+
+def set_int_var(varopt: Options, val: int) -> None:
+    _int_vars[CVARS[varopt]].set(val)
+
+
+def set_string_var(varopt: Options, val: str) -> None:
+    _string_vars[CVARS[varopt]].set(val)
+
+
+def get_grid_info(grid_obj: Literal[Globals.FRAME_PATH, Globals.FRAME_PATHOPTS]) -> _GridInfo:
+    return _grid_params[grid_obj]
+
+
+# globals
+# ROOOT
+_root: _AppRoot | None = None
+_rootFrame: _BaseFrame | None = None
+_rootMenu: Menu | None = None
+# windows
+_window_log: _LogWindow | None = None
+_window_proxy: _ProxyWindow | None = None
+_window_hcookies: _HeadersAndCookiesWindow | None = None
+_window_timeout: _ConnectionTimeoutWindow | None = None
+_window_retries: _ConnectionRetriesWindow | None = None
+_window_apikey: _ApiKeyWindow | None = None
+_window_qbuilder: _QueryBuilderWindow | None = None
+# counters
+_c_menu: _BaseMenu | None = None
+_c_submenu: _BaseMenu | None = None
+# these containers keep technically unbound variables so they arent purged by GC
+_bool_vars: dict[str, BooleanVar] = {}
+_int_vars: dict[str, IntVar] = {}
+_string_vars: dict[str, StringVar] = {}
+_grid_params: dict[Globals, _GridInfo] = {}
+# end globals
+
+# loaded
+_console_shown: bool = True
+_text_cmd: Text | None = None
+_text_qbuilder: Text | None = None
+# end loaded
+
+# icons
+_icons: dict[Icons, PhotoImage | None] = dict.fromkeys(Icons.__members__.values())
+# end icons
+
+# GUI grid composition: current column / row universal counters (resettable)
+_c_col: int | None = None
+_c_row: int | None = None
+
+#
+#
+#########################################

@@ -1,0 +1,25 @@
+{
+ "recorded": "2026-11-20",
+ "fetcher": "lynxx.extgen SafeFetcher (fetcher_for), bodies saved unchanged",
+ "files": {
+  "robots.txt": {
+   "url": "https://rule34.paheal.net/robots.txt",
+   "bytes": 177,
+   "sha256": "a7ce47eaeca60dc08b1994214883a78fcdc5ba1204f791442f21c2b5e234503f"
+  },
+  "tags_popularity_mincount=20000.section.html": {
+   "url": "https://rule34.paheal.net/tags/popularity?mincount=20000",
+   "excerpt": {
+    "of": {
+     "bytes": 44046,
+     "sha256": "bb8afb6406770386efd245a2a92fe4377565920ba4166f2c1b1d06d2ed5fe6ef"
+    },
+    "start": 24956,
+    "end": 42425,
+    "what": "the page's bytes [start, end) unchanged: the <section> that holds the list ('Results grouped by log' to its </section>). The rest of the page (menus, ads, the login form with the recording session's auth_token) is left out"
+   },
+   "bytes": 17469,
+   "sha256": "373c4a3f826bfd07aa7b36291205de960624a25f6193b324cff427f3b97fe076"
+  }
+ }
+}

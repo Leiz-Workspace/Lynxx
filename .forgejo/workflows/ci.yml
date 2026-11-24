@@ -1,0 +1,61 @@
+# File description: CI of Lynxx on the Home Server's self-hosted Forgejo (the platform's pull mirror of the GitHub
+# repository). GitHub stays the source of truth and keeps its own Tests workflow (the ruleset's required check);
+# this run is the platform's view of every push to develop, staging and production: ruff, the offline unit tests
+# (the list of .github/workflows/run-tests.yml, so the two never drift apart) and the Node icon test, on Python 3.11
+# (the oldest supported version) in Debian bookworm.
+# Runs on the Forgejo runner label "docker" only; GitHub workflows (.github/) never run on Forgejo.
+name: ci
+
+on:
+  push:
+    branches: [develop, staging, production]
+  workflow_dispatch:
+
+env:
+  SERVER_URL: ${{ forgejo.server_url }}
+  REPOSITORY: ${{ forgejo.repository }}
+  SHA: ${{ forgejo.sha }}
+
+jobs:
+  test:
+    runs-on: docker
+    container:
+      image: ${{ vars.BASE_IMAGES }}/node:22-bookworm
+    timeout-minutes: 30
+    steps:
+      # Plain git with a credential file written by the printf builtin, so the token never reaches a process list.
+      - name: Checkout
+        env:
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          set -eu
+          host="${SERVER_URL#*://}"; host="${host%%/*}"
+          ( umask 077 && printf 'https://x-access-token:%s@%s\n' "${TOKEN}" "${host}" > "${HOME}/.git-credentials" )
+          git config --global credential.helper store
+          git init -q . && git remote add origin "${SERVER_URL}/${REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${SHA}" && git checkout -q FETCH_HEAD
+          : > "${HOME}/.git-credentials"
+          echo "lynxx $(git rev-parse --short HEAD)"
+
+      - name: Python environment
+        run: |
+          set -eu
+          # python3-tk and tkinterdnd2: the legacy tests (lynxx/tests/tests.py) import the Tk GUI modules, as on GitHub
+          apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 python3-venv python3-tk >/dev/null
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/python -m pip install -q --upgrade pip
+          /tmp/venv/bin/python -m pip install -q -r requirements.txt 'anthropic>=2.9' 'ruff~=0.16.0'
+          /tmp/venv/bin/python --version
+
+      - name: Lint
+        run: /tmp/venv/bin/ruff check lynxx tools extensions
+
+      - name: Unit tests
+        run: |
+          set -eu
+          export LYNXX_DATA_DIR="$(mktemp -d)"
+          modules="$(grep -oE 'lynxx\.tests\.test_[a-z_0-9]+' .github/workflows/run-tests.yml | sort -u | tr '\n' ' ')"
+          # shellcheck disable=SC2086
+          /tmp/venv/bin/python -W ignore -m unittest ${modules}
+          /tmp/venv/bin/python -W ignore -m unittest lynxx/tests/tests.py
+          node app/test/icon-utils.test.js

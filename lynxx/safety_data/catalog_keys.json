@@ -1,0 +1,10 @@
+{
+  "_comment": "Khoá công khai Ed25519 dùng để kiểm chữ ký catalog extension từ xa (lynxx/trust.py). Catalog chính thức: release 'catalog' của repo GitHub, ký bằng khoá b852144452eea5dc. Thêm hoặc đổi khoá: python tools/sign_catalog.py pubkey --key <file khoá bí mật> rồi dán mục in ra vào 'keys'. Xem docs/operations.md, mục 3d.",
+  "keys": [
+    {
+      "keyId": "b852144452eea5dc",
+      "publicKey": "rvhsuzwSl8xI6gurOwis5f70F4bopPbvfPAxPBo8cKE=",
+      "comment": "Lynxx official catalog key (2026-11-18)"
+    }
+  ]
+}

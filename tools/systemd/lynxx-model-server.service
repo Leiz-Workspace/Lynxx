@@ -1,0 +1,20 @@
+# Lynxx gender model server for this user (the desktop app calls http://127.0.0.1:8765)
+#   cp tools/systemd/lynxx-model-server.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now lynxx-model-server
+# Needs numpy + onnxruntime + Pillow in the venv: uv pip install --python .venv/bin/python -e '.[model]'
+# (NVIDIA GPU: '.[model-gpu]' instead, docs/operations.md §3c; the model then runs on CUDA)
+[Unit]
+Description=Lynxx: gender model server (HTTP API on 127.0.0.1:8765)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Workspace/Lynxx
+ExecStart=%h/Workspace/Lynxx/.venv/bin/python -m lynxx.model_server --host 127.0.0.1 --port 8765 --quiet
+Restart=on-failure
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=default.target

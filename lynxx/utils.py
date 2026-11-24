@@ -1,0 +1,215 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+#
+
+import datetime
+import inspect
+import itertools
+import math
+import sys
+import traceback
+from collections.abc import Callable, Iterable, MutableSequence
+from typing import Literal, Protocol, TypeVar
+
+from yarl import URL
+
+from .defines import FMT_DATE, MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_STR, SUBFOLDER_NAME_LEN_MAX, SUPPORTED_PLATFORMS
+from .gui_defines import (
+    OPTION_CMD_APIKEY_CMD,
+    OPTION_CMD_COOKIES_CMD,
+    OPTION_CMD_GENDER_MODEL_TOKEN_CMD,
+    OPTION_CMD_HEADERS_CMD,
+    OPTION_CMD_PATH_CMD,
+    OPTION_CMD_PROXY_CMD,
+    UNDERSCORE,
+)
+from .rex import re_replace_symbols_sub, re_uscore_mult
+
+
+class Hashable(Protocol):
+    def __hash__(self) -> int: ...
+
+
+HT = TypeVar('HT', bound=Hashable)
+
+
+def ensure_compatibility() -> None:
+    assert sys.version_info >= MIN_PYTHON_VERSION, f'Minimum python version required is {MIN_PYTHON_VERSION_STR}!'
+    assert sys.platform in SUPPORTED_PLATFORMS, f'Unsupported OS \'{sys.platform}\'!'
+
+
+def format_exception(mode: Literal['full', 'row', 'name']) -> str:
+    if mode == 'name':
+        return sys.exc_info()[0].__name__
+    exception_string = traceback.format_exc(0, False) if mode == 'row' else traceback.format_exc()
+    return exception_string
+
+
+def assert_nonempty(container: Iterable[str], message='') -> Iterable[str]:
+    try:
+        next(iter(container))
+        return container
+    except StopIteration:
+        assert False, message
+
+
+# def is_sorted(c: Iterable) -> bool:
+#     return all(a <= b for a, b in zip(c, c[1:]))
+
+
+def unique_ordered(inputs: Iterable[HT]) -> list[HT]:
+    hashes_set = set[int]()
+    elements: list[HT] = []
+    for elem in inputs:
+        ehash = hash(elem)
+        if ehash not in hashes_set:
+            hashes_set.add(ehash)
+            elements.append(elem)
+    return elements
+
+
+def find_first_not_of(s: str, chars: str) -> int:
+    for i, c in enumerate(s):
+        if c not in chars:
+            return i
+    return -1
+
+
+def startsendswith(string: str, c: str) -> bool:
+    return len(string) > 2 and string[::len(string) - 1] == c * 2
+
+
+def number_len_fmt(number: int) -> str:
+    return f'0{math.ceil(math.log10(number + 1)):d}d'
+
+
+def as_date(date_s: str) -> datetime.date:
+    return datetime.datetime.strptime(date_s, FMT_DATE).date()
+
+
+CONFIRM_HANDLER: Callable[[str, str], bool] | None = None
+'''override for non-tkinter frontends (ex. Lynxx desktop sidecar), None means tkinter message box'''
+
+
+def confirm_yes_no(title: str, msg: str) -> bool:
+    if CONFIRM_HANDLER is not None:
+        return CONFIRM_HANDLER(title, msg)
+    from tkinter import messagebox  # lazy: core must work without tkinter
+    return messagebox.askyesno(title, msg)
+
+
+def trim_underscores(base_str: str) -> str:
+    return re_uscore_mult.sub('_', base_str).strip('_')
+
+
+def garble_text(base_str: str) -> str:
+    return '*' * (1 + len(base_str) + sum(divmod(len(base_str), 3)))
+
+
+def garble_argument_values(args_list: MutableSequence[str], *arg_extra_names: str) -> None:
+    arguments_to_garble = (OPTION_CMD_PATH_CMD, OPTION_CMD_PROXY_CMD, *arg_extra_names)
+    try:
+        for arg_name in arguments_to_garble:
+            try:
+                idx = args_list.index(arg_name)
+            except Exception:
+                continue
+            assert len(args_list) > idx + 1
+            arg_value = args_list[idx + 1]
+            if arg_value:
+                args_list[idx + 1] = '<REDACTED>'  # garble_text(arg_value)
+    except (ValueError, AssertionError):
+        return
+
+
+REDACTED = '<REDACTED>'
+SECRET_ARG_NAMES = (OPTION_CMD_APIKEY_CMD, OPTION_CMD_PROXY_CMD, OPTION_CMD_GENDER_MODEL_TOKEN_CMD, OPTION_CMD_COOKIES_CMD,
+                    OPTION_CMD_HEADERS_CMD)
+'''options whose whole value is hidden in logs'''
+NAMED_SECRET_ARG_NAMES = (OPTION_CMD_COOKIES_CMD[:-1], OPTION_CMD_HEADERS_CMD[:-1])
+'''-cookie / -header name=value: the name stays readable in logs, the value is hidden'''
+
+
+def _redacted_value(option: str, value: str) -> str:
+    if not value:
+        return value
+    if option in NAMED_SECRET_ARG_NAMES and '=' in value:
+        return f'{value.split("=", 1)[0]}={REDACTED}'
+    return REDACTED
+
+
+def redact_args(args: Iterable[str]) -> list[str]:
+    """A copy of an argument list for logs: values of credential options (API key, proxy, model token, cookies, headers) hidden,
+    always (not only with -hide_personal_info: a cf_clearance cookie or an Authorization header must never reach a log).
+    '-opt value' and '-opt=value' forms; the tags after '--' are kept as they are"""
+    out: list[str] = []
+    it = iter(args)
+    for arg in it:
+        arg = str(arg)
+        if arg == '--':
+            out.append(arg)
+            out.extend(str(a) for a in it)
+            break
+        option, eq, value = arg.partition('=')
+        if option not in SECRET_ARG_NAMES and option not in NAMED_SECRET_ARG_NAMES:
+            out.append(arg)
+        elif eq:
+            out.append(f'{option}={_redacted_value(option, value)}')
+        else:
+            out.append(arg)
+            if (nxt := next(it, None)) is not None:
+                out.append(_redacted_value(option, str(nxt)))
+    return out
+
+
+def format_score(score_str: str) -> str:
+    score_str = score_str or '0'
+    return f'({"" if score_str.startswith(("0", "-", "+", "u")) else "+"}{score_str})'
+
+
+def make_subfolder_name(tags_str: str, task_num: int, tasks_count: int) -> str:
+    max_tags_str_len = SUBFOLDER_NAME_LEN_MAX * 2
+    lname = tags_str
+    if len(lname) > max_tags_str_len:
+        lname = f'{lname[:(max_tags_str_len + 1) // 2]}..{lname[-(max_tags_str_len + 1) // 2:]}'
+    name = f'{task_num:{number_len_fmt(tasks_count)}}_{trim_underscores(re_replace_symbols_sub.sub(UNDERSCORE, lname))}'
+    if len(name) > SUBFOLDER_NAME_LEN_MAX:
+        name = name.replace('..', '')
+        name = f'{name[:(SUBFOLDER_NAME_LEN_MAX - 2) // 2]}..{name[-(SUBFOLDER_NAME_LEN_MAX - 2) // 2:]}'
+    return name
+
+
+def sanitize_path_name(filename_base: str) -> str:
+    def char_replace(char: str) -> str:
+        if char in '\n\r\t"*:<>?|/\\':
+            return {'/': '\u29f8', '\\': '\u29f9', '\n': '', '\r': '', '\t': ''}.get(char, chr(ord(char) + 0xfee0))
+        elif ord(char) < 32 or ord(char) == 127:
+            char = ''
+        return char
+
+    filename = ''.join(map(char_replace, filename_base)).replace('\0', '_')
+    while '__' in filename:
+        filename = filename.replace('__', '_')
+    return filename.strip('_')
+
+
+def normalize_host(url: URL) -> URL:
+    return url.with_host('.'.join(url.host.split('.')[-2:]))
+
+
+def format_stack_frame_invalid_args(level=1) -> str:
+    frame = inspect.stack()[level].frame
+    arginfo = inspect.getargvalues(frame)
+    f_args: list[str] = arginfo.args
+    f_vargs: list[str] = arginfo.locals[arginfo.varargs] if arginfo.varargs else []
+    f_kwargs: dict[str, str] = arginfo.locals[arginfo.keywords] if arginfo.keywords else []
+    arguments = itertools.chain([f'{_}={arginfo.locals[_]}' for _ in f_args], f_vargs, [f'{_}={f_kwargs[_]}' for _ in f_kwargs])
+    return f'{frame.f_code.co_name}: invalid arguments {", ".join(arguments)}'
+
+#
+#
+#########################################

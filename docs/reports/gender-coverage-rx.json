@@ -1,0 +1,64 @@
+{
+  "generated": "2026-11-16 18:20:59",
+  "note": "tags only, no images were downloaded",
+  "samples": [
+    {
+      "sample": "latest",
+      "module": "rx",
+      "posts": 1000,
+      "blocked_when_filtering": 23,
+      "rated": 977,
+      "coverage_medium_plus": 0.8577,
+      "unknown_rate": 0.1412,
+      "conflict_rate": 0.001,
+      "labels": {
+        "only_female": {
+          "medium": 293,
+          "high": 52
+        },
+        "only_male": {
+          "medium": 154,
+          "high": 12
+        },
+        "both": {
+          "high": 327,
+          "low": 1
+        },
+        "none": {},
+        "unknown": {
+          "none": 138
+        }
+      }
+    },
+    {
+      "sample": "random",
+      "module": "rx",
+      "posts": 1000,
+      "blocked_when_filtering": 46,
+      "rated": 954,
+      "coverage_medium_plus": 0.9455,
+      "unknown_rate": 0.0535,
+      "conflict_rate": 0.001,
+      "labels": {
+        "only_female": {
+          "medium": 291,
+          "high": 161
+        },
+        "only_male": {
+          "medium": 77,
+          "high": 74
+        },
+        "both": {
+          "high": 298,
+          "low": 1
+        },
+        "none": {
+          "medium": 1
+        },
+        "unknown": {
+          "none": 51
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+User-agent: *
+Crawl-delay: 3
+Disallow: /comment
+Disallow: /thumb/
+Disallow: /_thumbs/
+Disallow: /source_history
+Disallow: /tag_history
+Disallow: /post/next
+Disallow: /post/prev

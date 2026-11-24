@@ -1,0 +1,27 @@
+{
+  "$schema": "../../docs/schemas/extension-manifest.schema.json",
+  "id": "rule34hentai",
+  "name": "Rule34 Hentai",
+  "abbr": "rn",
+  "version": "1.0.4",
+  "apiVersion": 1,
+  "kind": "downloader",
+  "default": false,
+  "site": "https://rule34hentai.net/",
+  "media": [
+    "image",
+    "video"
+  ],
+  "entry": "downloader.py:DownloaderRn",
+  "tagList": "rn_tags.json",
+  "description": "Shimmie-based (HTML). cf_clearance cookie may be required (lasts 15 minutes).",
+  "syntax": {
+    "concat": "+",
+    "idSep": "=",
+    "maxTagsStringLen": 300,
+    "metaCount": "(?:[<>]=?|=)[a-z\\d\\-_]+?",
+    "sort": "order=(?:id|score)_desc",
+    "fav": "favorited_by=[^:=]+?",
+    "pool": ""
+  }
+}

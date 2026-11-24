@@ -1,0 +1,19 @@
+# Lynxx gender model server, standalone bundle (tools/build_model_server.py), for this user; the desktop app calls
+# http://127.0.0.1:8765. Unpack the archive into ~/.local/share/lynxx-model-server, then:
+#   cp lynxx-model-server-bundle.service ~/.config/systemd/user/lynxx-model-server.service   (in the bundle, or tools/systemd/)
+#   systemctl --user daemon-reload && systemctl --user enable --now lynxx-model-server
+# The model (~380 MB) is downloaded on the first start into ~/.config/Lynxx/models (or LYNXX_GENDER_MODEL_DIR).
+[Unit]
+Description=Lynxx: gender model server (HTTP API on 127.0.0.1:8765)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/lynxx-model-server/lynxx-model-server --host 127.0.0.1 --port 8765 --quiet
+Restart=on-failure
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=default.target

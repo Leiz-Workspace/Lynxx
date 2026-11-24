@@ -1,0 +1,127 @@
+{
+  "name": "lynxx-desktop",
+  "productName": "Lynxx",
+  "desktopName": "lynxx.desktop",
+  "version": "2.0.14",
+  "description": "Lynxx desktop UI (Electron) for the Lynxx booru downloader core",
+  "homepage": "https://github.com/Leiz-Workspace/Lynxx",
+  "author": "Lynxx contributors",
+  "main": "main.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "start:debug": "electron . --enable-logging --lynxx-devtools",
+    "check": "node --check main.js && node --check preload.js && node --check renderer/app.js && node --check renderer/guide.js && node --check renderer/mock.js && node --check tag-schedule.js && node test/tag-schedule.test.js && node --check site-verify.js && node test/site-verify.test.js",
+    "check:core": "node -e \"if (!require('fs').existsSync('build/core/lynxx-core')) { console.error('frozen core missing: run python tools/build_core.py in the repo root first'); process.exit(1); }\"",
+    "dist": "npm run check:core && electron-builder --publish never",
+    "dist:dir": "npm run check:core && electron-builder --dir --publish never"
+  },
+  "build": {
+    "appId": "app.lynxx.desktop",
+    "productName": "Lynxx",
+    "copyright": "MIT License, Lynxx contributors (based on the original work of trickerer01)",
+    "artifactName": "lynxx-${os}-${arch}_v${version}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon-utils.js",
+      "tag-schedule.js",
+      "site-verify.js",
+      "package.json",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/core/lynxx-core",
+        "to": "core",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "afterPack": "build/after-pack.js",
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "lynxx",
+      "syncDesktopName": true,
+      "icon": "assets/icons/full-mask-orange.png",
+      "category": "Network",
+      "synopsis": "Booru downloader",
+      "description": "Booru downloader",
+      "executableArgs": [],
+      "maintainer": "DungeonLeiz <korosakiryukai@gmail.com>",
+      "vendor": "DungeonLeiz"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/full-mask-orange.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Lynxx",
+      "artifactName": "lynxx-setup-${arch}_v${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "assets/icons/full-mask-orange.png",
+      "identity": null
+    },
+    "deb": {
+      "packageCategory": "net"
+    },
+    "publish": null
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "^11.0.1"
+  },
+  "devDependencies": {
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0"
+  }
+}

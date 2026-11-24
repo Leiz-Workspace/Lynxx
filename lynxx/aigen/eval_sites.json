@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "description": "Bộ site để đánh giá trình tạo extension (python -m lynxx.aigen.eval). 'expect' là kết quả mong đợi; 'note' ghi nguồn của mong đợi đó. Chạy thật lần đầu với --live --record <thư mục> (chế độ template miễn phí), các lần sau chạy offline với --fixtures <thư mục>.",
+  "targets": [
+    {
+      "name": "safebooru",
+      "url": "https://safebooru.org/",
+      "media": ["image"],
+      "expect": {"status": "ready", "engine": "gelbooru_dapi"},
+      "note": "Gelbooru 0.2 DAPI; chế độ không AI đạt 14/14 (dev log 7m)"
+    },
+    {
+      "name": "xbooru",
+      "url": "https://xbooru.com/",
+      "expect": {"status": "ready", "engine": "gelbooru_dapi"},
+      "note": "Gelbooru 0.2 DAPI, catalog đã có extension xbooru (bản tóm tắt phải nhắc); lõi đóng băng đạt 14/14 (dev log 7m)"
+    },
+    {
+      "name": "konachan-net",
+      "url": "https://konachan.net/",
+      "media": ["image"],
+      "expect": {"status": "ready", "engine": "moebooru_json"},
+      "note": "Moebooru; đạt, 8 request (dev log 7n)"
+    },
+    {
+      "name": "derpibooru",
+      "url": "https://derpibooru.org/",
+      "media": ["image", "video"],
+      "expect": {"status": "ready", "engine": "philomena_json"},
+      "note": "Philomena; đạt 14/14 sau khi có con trỏ id (dev log 7n)"
+    },
+    {
+      "name": "e926",
+      "url": "https://e926.net/",
+      "expect": {"status": ["refused", "ready"]},
+      "note": "Ngày 2026-11-17 trả Cloudflare challenge → từ chối R5 (dev log 7n). Nếu site bỏ challenge thì ready (e621_json) cũng đúng"
+    },
+    {
+      "name": "youtube-denied",
+      "url": "https://www.youtube.com/",
+      "expect": {"status": "refused", "ruleIds": ["R7"]},
+      "note": "danh sách chặn tên miền (R7): từ chối trước mọi request"
+    },
+    {
+      "name": "youtube-fullwidth-denied",
+      "url": "https://ｗｗｗ．ｙｏｕｔｕｂｅ．ｃｏｍ/",
+      "expect": {"status": "refused", "ruleIds": ["R7"]},
+      "note": "lách danh sách chặn bằng chữ full-width: phải bị từ chối như youtube.com"
+    },
+    {
+      "name": "rule34us-ai",
+      "url": "https://rule34.us/",
+      "modes": ["ai"],
+      "expect": {"status": "ready", "engine": "custom"},
+      "note": "HTML tùy biến (catalog có extension rule34us làm mẫu): mục tiêu của chế độ AI, chưa chạy với Claude thật"
+    },
+    {
+      "name": "rule34hentai-ai",
+      "url": "https://rule34hentai.net/",
+      "modes": ["ai"],
+      "expect": {"status": "ready", "engine": "shimmie"},
+      "note": "Shimmie2 không có API danbooru (catalog có extension rule34hentai): mục tiêu của chế độ AI, chưa chạy với Claude thật"
+    }
+  ]
+}

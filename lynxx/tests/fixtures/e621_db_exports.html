@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!-- e621.net/db_exports as served on 2026-11-19, trimmed to the export list with two of its rows (tag_aliases, tags) and no
+     scripts, styles or navigation. Used by lynxx/tests/test_tag_sources.py (E621ExportTests) -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Database Exports - e621</title>
+</head>
+<body lang="en" class="c-db-exports a-index resp" data-controller="db-exports" data-action="index">
+  <div id="page">
+    <div id="c-db-exports">
+  <div id="a-index">
+    <h1>Database Exports</h1>
+
+    <div class="exports-description">
+      <p>Database exports in gzipped CSV format, updated daily.</p>
+      <p>Each export lists a SHA-256 checksum of its <code>.csv.gz</code> file. After downloading, verify it with <code>sha256sum &lt;file&gt;</code>.</p>
+      <p>For programmatic access, use the <a href="/db_exports.json">JSON endpoint</a>.</p>
+    </div>
+
+      <div class="exports-list">
+        <div class="header">Name</div>
+        <div class="header">Size</div>
+        <div class="header">Updated</div>
+        <div class="header">Checksum (SHA-256)</div>
+        <div class="header"></div>
+
+          <div class="row">
+            <div class="cell" data-label="Name"><strong>tag_aliases</strong></div>
+            <div class="cell" data-label="Size">2.6 MB</div>
+            <div class="cell" data-label="Updated"><time datetime="2026-11-18T23:49-05:00" title="2026-11-18 23:49:58 -0500" class="time-waiting">about 14 hours ago</time></div>
+            <div class="cell" data-label="Checksum">
+                <input type="text" class="export-checksum-input select-all" value="f860fac175bbde377638554b537ea1d9d5dd1887afb15d2fb4e2f84b1defdd58" readonly />
+            </div>
+            <div class="cell" data-label="Actions">
+              <a class="export-download-link" href="https://static1.e621.net/data/db_export/tag_aliases.csv.gz">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" name="download"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg> Download
+</a>            </div>
+          </div>
+          <div class="row">
+            <div class="cell" data-label="Name"><strong>tags</strong></div>
+            <div class="cell" data-label="Size">33.7 MB</div>
+            <div class="cell" data-label="Updated"><time datetime="2026-11-18T23:50-05:00" title="2026-11-18 23:50:10 -0500" class="time-waiting">about 14 hours ago</time></div>
+            <div class="cell" data-label="Checksum">
+                <input type="text" class="export-checksum-input select-all" value="702bfb79c59542891a0b6ec3a345ac90864e9edd978cc6f1136c3841fca728b7" readonly />
+            </div>
+            <div class="cell" data-label="Actions">
+              <a class="export-download-link" href="https://static1.e621.net/data/db_export/tags.csv.gz">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" name="download"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg> Download
+</a>            </div>
+          </div>
+      </div>
+  </div>
+</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "$schema": "../../docs/schemas/extension-manifest.schema.json",
+  "id": "xbooru",
+  "name": "Xbooru",
+  "abbr": "xb",
+  "version": "1.0.1",
+  "apiVersion": 1,
+  "kind": "downloader",
+  "default": false,
+  "site": "https://xbooru.com/",
+  "media": [
+    "image",
+    "video"
+  ],
+  "entry": "downloader.py:DownloaderXb",
+  "tagList": "xb_tags.json",
+  "description": "Gelbooru-based DAPI (XML).",
+  "syntax": {
+    "concat": "+",
+    "idSep": ":",
+    "maxTagsStringLen": 3300,
+    "metaCount": ":(?:(?:[<>]=?|=)?[a-z\\d\\-_]+?|[a-z\\d_]+:[a-z\\d_]+?)",
+    "sort": "sort(?::[^:]+?){1,2}",
+    "fav": "",
+    "pool": ""
+  }
+}

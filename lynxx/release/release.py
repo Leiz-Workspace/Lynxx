@@ -1,0 +1,144 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+#
+
+import itertools
+import pathlib
+import shutil
+import sys
+from subprocess import call as call_subprocess
+
+from lynxx.defines import PLATFORM_WINDOWS
+from lynxx.release.versioninfo import VERSIONINFO_FILE_PATH, generate_versioninfo
+from lynxx.utils import format_exception
+from lynxx.vcs.debug import __LYNXX_DEBUG__
+from lynxx.vcs.version import APP_NAME, APP_VERSION
+
+__all__ = ('make_release',)
+
+RUN_TESTS = not __LYNXX_DEBUG__
+
+ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent.parent
+BUILD_DIR = ROOT_DIR / 'build'
+RELEASE_SRC_DIR = ROOT_DIR / 'dist'
+RELEASE_DEST_DIR = ROOT_DIR / 'release'
+RELEASE_FILENAME = f'{APP_NAME}{".exe" if sys.platform == PLATFORM_WINDOWS else ""}'
+RELEASE_SRC = RELEASE_SRC_DIR / RELEASE_FILENAME
+RELEASE_DEST = RELEASE_DEST_DIR / RELEASE_FILENAME
+
+CLEANUP_FILES = (VERSIONINFO_FILE_PATH, ROOT_DIR / f'{APP_NAME}.spec')
+CLEANUP_DIRS = (BUILD_DIR, RELEASE_SRC_DIR)
+
+MODULES_EXCLUDED = (
+    'lxml',
+    'lxml.etree',
+    'lxml.isoschematron',
+    'lxml.objectify',
+    'asyncio',
+    'readline',
+    'org',
+    'java',
+    'java.lang',
+    'difflib',
+    'distutils',
+    'distutils.util',
+    'lib2to3',
+    'sysconfig',
+    'xml',
+    'xml.etree.cElementTree',
+    'pydoc',
+    'aiofile',
+    'aiohttp',
+    'aiohttp-socks',
+    'aiosignal',
+    'backports.entry-points-selectable',
+    'brotli',
+    'colorama',
+    'filelock',
+    'flake8',
+    'mccabe',
+    'pycodestyle',
+    'pyflakes',
+    'ruff',
+    'importlib-metadata',
+    'zipp',
+    'mutagen',
+    'packaging',
+    'pip',
+    'pipdeptree',
+    'psutil',
+    'pycryptodomex',
+    'pyinstaller',
+    'altgraph',
+    'pyinstaller-hooks-contrib',
+    'pywin32-ctypes',
+    'setuptools',
+    'websockets',
+)
+
+
+def move_exe() -> None:
+    try:
+        if not RELEASE_SRC.is_file():
+            raise FileNotFoundError('2')
+    except FileNotFoundError:
+        print(format_exception('full'))
+        return
+    RELEASE_DEST.unlink(missing_ok=True)
+
+    shutil.move(RELEASE_SRC, RELEASE_DEST_DIR)
+
+
+def build_exe() -> None:
+    call_subprocess((
+        sys.executable, '-m', 'PyInstaller', ROOT_DIR.joinpath('lynxx/__main__.py').as_posix(),
+        '--clean', '--log-level', 'DEBUG',
+        '-F', '--noupx', '-c', '-y',
+        '-n', APP_NAME,
+        '-i', './images/lynxx.ico',  # app/assets/icons/full-mask-orange.png at 16-256 px
+        *(itertools.chain.from_iterable(zip(('--exclude-module',) * len(MODULES_EXCLUDED), MODULES_EXCLUDED, strict=True))),
+        '--collect-datas=fake_useragent',
+        # builtin extensions: manifests are data, downloader modules are imported dynamically
+        '--add-data', f'{ROOT_DIR.joinpath("lynxx/builtin_ext").as_posix()}:lynxx/builtin_ext',
+        '--add-data', f'{ROOT_DIR.joinpath("lynxx/gender_rules").as_posix()}:lynxx/gender_rules',
+        # domain denylist + trusted catalog keys (read at run time: a missing file refuses non builtin extensions)
+        '--add-data', f'{ROOT_DIR.joinpath("lynxx/safety_data").as_posix()}:lynxx/safety_data',
+        '--hidden-import', 'lynxx.download_rx', '--hidden-import', 'lynxx.download_db',
+        # the stable API extensions import (lynxx/sdk.py): no core module imports it
+        '--hidden-import', 'lynxx.sdk',
+        '--version-file=version_info.txt',
+    ))
+
+
+def cleanup() -> None:
+    def report_exc(*_) -> None:
+        print(format_exception('full'))
+    for clean_item in CLEANUP_FILES:
+        clean_item.unlink(missing_ok=True)
+    for clean_item in CLEANUP_DIRS:
+        if clean_item.is_dir():
+            shutil.rmtree(clean_item, onerror=report_exc)
+
+
+def make_release() -> None:
+    if RUN_TESTS is True:
+        call_subprocess((
+            sys.executable, '-m', 'unittest', ROOT_DIR.joinpath('lynxx/tests/tests.py').as_posix(),
+        ))
+    generate_versioninfo()
+    build_exe()
+    move_exe()
+    cleanup()
+    print(f'\n### Version: {APP_VERSION} ###')
+
+
+if __name__ == '__main__':
+    make_release()
+
+#
+#
+#########################################

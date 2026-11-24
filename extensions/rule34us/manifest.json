@@ -1,0 +1,27 @@
+{
+  "$schema": "../../docs/schemas/extension-manifest.schema.json",
+  "id": "rule34us",
+  "name": "Rule34.us",
+  "abbr": "rs",
+  "version": "1.0.2",
+  "apiVersion": 1,
+  "kind": "downloader",
+  "default": false,
+  "site": "https://rule34.us/",
+  "media": [
+    "image",
+    "video"
+  ],
+  "entry": "downloader.py:DownloaderRs",
+  "tagList": "rs_tags.json",
+  "description": "HTML scraping of public listing pages. No date filter.",
+  "syntax": {
+    "concat": "+",
+    "idSep": ":",
+    "maxTagsStringLen": 7000,
+    "metaCount": ":(?:(?:[<>]=?|=)?[a-z\\d\\-_]+?|[a-z\\d_]+:[a-z\\d_]+?)",
+    "sort": "sort(?::[^:]+?){1,2}",
+    "fav": "favorited_by:\\d+?",
+    "pool": ""
+  }
+}

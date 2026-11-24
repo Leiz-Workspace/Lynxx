@@ -1,0 +1,45 @@
+{
+  "id": "rule34world",
+  "name": "Rule34.world",
+  "abbr": "rw",
+  "version": "1.1.1",
+  "apiVersion": 1,
+  "kind": "downloader",
+  "default": false,
+  "site": "https://rule34.world/",
+  "media": [
+    "image",
+    "video"
+  ],
+  "tagList": "rw_tags.json",
+  "entry": "downloader.py:DownloaderRw",
+  "minSdkVersion": "1.1",
+  "description": "Rule34.world: search pages (html, 30 posts, at most 300 pages) + one json request per post (tags, date, original file of the site's Download action, or the post's own smaller file for the image / video quality settings). Up to 5 tags per search (more are checked locally), -tags are filtered locally; no metatags, wildcards, favorites or pools.",
+  "syntax": {
+    "concat": "+",
+    "idSep": ":",
+    "maxTagsStringLen": 3300,
+    "maxTags": 5,
+    "maxTagsSeparate": false,
+    "maxWildcards": 0,
+    "freeMetaPrefixes": [],
+    "localPositiveOverflow": true,
+    "metaCount": "(?!)",
+    "sort": "(?!)",
+    "fav": "",
+    "pool": ""
+  },
+  "search": {
+    "idSearch": false
+  },
+  "$generator": {
+    "tool": "lynxx.extgen",
+    "toolVersion": "2.0 r7",
+    "engine": "custom",
+    "sourceUrl": "https://rule34.world/",
+    "createdAt": "2026-11-19T03:16:53Z"
+  },
+  "tagUpdate": {
+    "entry": "tags.py:read_tags"
+  }
+}

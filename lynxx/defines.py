@@ -1,0 +1,407 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+#
+
+from __future__ import annotations
+
+import datetime
+from dataclasses import dataclass
+from enum import IntEnum, auto
+
+MIN_PYTHON_VERSION = (3, 10)
+MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
+
+
+@dataclass
+class Comment:
+    """Comment structure (not saving all the info of course)"""
+    __slots__ = ('author', 'body')
+
+    author: str
+    body: str
+
+    def __init__(self, author: str, body: str) -> None:
+        self.author: str = author
+        self.body: str = body
+
+    @classmethod
+    def from_dict(cls, fields: dict[str, str | list[dict[str, str]]]) -> Comment:
+        cc = Comment(fields['author'], fields['body'])
+        return cc
+
+    def __eq__(self, other: Comment) -> bool:
+        return all(hasattr(other, _) and getattr(other, _) == getattr(self, _) for _ in self.__slots__)
+
+    def __str__(self) -> str:
+        return f'{self.author}:\n{self.body}'
+
+    __repr__ = __str__
+
+
+@dataclass
+class ItemInfo:
+    """Universal info container for processed item"""
+    __slots__ = (
+        'comments', 'date', 'ext', 'has_children', 'height', 'id', 'md5', 'modified', 'parent_id', 'score', 'source', 'tags', 'width',
+    )
+    optional_slots = frozenset(('source', 'comments', 'score', 'has_children', 'parent_id', 'md5', 'date', 'modified'))
+
+    id: str
+    height: str
+    width: str
+    tags: str
+    ext: str
+    source: str
+    comments: list[Comment]
+    score: str
+    md5: str
+    has_children: str
+    parent_id: str
+    date: str
+    modified: str
+
+    def __init__(self) -> None:
+        self.id: str = ''
+        self.height: str = ''
+        self.width: str = ''
+        self.tags: str = ''
+        self.ext: str = ''
+        self.source: str = ''
+        self.comments: list[Comment] = []
+        self.score: str = ''
+        self.md5: str = ''
+        self.has_children: str = ''
+        self.parent_id: str = ''
+        self.date: str = ''
+        self.modified: str = ''
+
+    @classmethod
+    def from_dict(cls, fields: dict[str, str | list[dict[str, str]]]) -> ItemInfo:
+        ii = ItemInfo()
+        ii.id = fields['id']
+        ii.height = fields['height']
+        ii.width = fields['width']
+        ii.tags = fields['tags']
+        ii.ext = fields['ext']
+        ii.source = fields['source']
+        ii.comments = [Comment.from_dict(_) for _ in fields['comments']]
+        ii.score = fields['score']
+        ii.md5 = fields['md5']
+        ii.has_children = fields['has_children']
+        ii.parent_id = fields['parent_id']
+        ii.date = fields['date']
+        ii.modified = fields['modified']
+        return ii
+
+    def __eq__(self, other: ItemInfo) -> bool:
+        return all(hasattr(other, _) and getattr(other, _) == getattr(self, _) for _ in self.__slots__)
+
+    def __lt__(self, other) -> bool:
+        return int(self.id or 0) < int(other.id or 0)
+
+
+class PageCheck:
+    """
+    PageCheck\n
+    Used to store page items check info for binary page search subchecks\n
+    first x ... x last
+    """
+    __slots__ = ('first', 'last')
+
+    def __init__(self) -> None:
+        self.first: bool = False
+        self.last: bool = False
+
+    def __str__(self) -> str:
+        return f'{self.first} <--> {self.last}'
+
+    __repr__ = __str__
+
+
+# PyCharm bug PY-53388 (IDE thinks auto() needs an argument)
+# noinspection PyArgumentList
+class DownloaderStates(IntEnum):
+    IDLE = 0
+    LAUNCHING = auto()
+    SEARCHING = auto()
+    SCANNING_PAGES1 = auto()
+    SCANNING_PAGES2 = auto()
+    FILTERING_ITEMS1 = auto()
+    FILTERING_ITEMS2 = auto()
+    FILTERING_ITEMS3 = auto()
+    FILTERING_ITEMS4 = auto()
+    DOWNLOADING = auto()
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}.{self.name} ({self.value:d})'
+
+
+PROGRESS_BAR_PCT = {
+    DownloaderStates.SEARCHING: 0.005,
+    DownloaderStates.SCANNING_PAGES1: 0.005,
+    DownloaderStates.SCANNING_PAGES2: 0.005,
+    DownloaderStates.FILTERING_ITEMS1: 0.005,
+    DownloaderStates.FILTERING_ITEMS2: 0.005,
+    DownloaderStates.FILTERING_ITEMS3: 0.005,
+    DownloaderStates.FILTERING_ITEMS4: 0.005,
+    DownloaderStates.DOWNLOADING: 0.965,
+}
+assert sum(PROGRESS_BAR_PCT.values()) == 1.000
+
+
+PROGRESS_BAR_MAX = 1000000000
+
+
+def max_progress_value_for_state(state: DownloaderStates) -> float:
+    return PROGRESS_BAR_MAX * PROGRESS_BAR_PCT.get(state, 1.0)
+
+
+PROGRESS_VALUE_DOWNLOAD = max_progress_value_for_state(DownloaderStates.DOWNLOADING)
+PROGRESS_VALUE_NO_DOWNLOAD = PROGRESS_BAR_MAX - PROGRESS_VALUE_DOWNLOAD
+
+
+class DownloadModes:
+    FULL = 'full'
+    SKIP = 'skip'
+    TOUCH = 'touch'
+
+
+DMODE_DEFAULT = DownloadModes.FULL
+DMODE_CHOICES = (DownloadModes.FULL, DownloadModes.SKIP, DownloadModes.TOUCH)
+
+STATE_WORK_START = DownloaderStates.SEARCHING
+
+
+STATUSBAR_INFO_MAP: dict[DownloaderStates, tuple[str, str | None, str | None, str | None]] = {
+    DownloaderStates.IDLE: ('Ready', None, None, None),
+    DownloaderStates.LAUNCHING: ('Launching...', None, None, None),
+    DownloaderStates.SEARCHING: ('Searching...', None, None, None),
+    DownloaderStates.SCANNING_PAGES1: ('Filtering pages (1/2)... ', 'total_pages', None, None),
+    DownloaderStates.SCANNING_PAGES2: ('Filtering pages (2/2)... ', 'total_pages', None, None),
+    DownloaderStates.FILTERING_ITEMS1: ('Filtering files (1/4)... ', 'total_count', None, None),
+    DownloaderStates.FILTERING_ITEMS2: ('Filtering files (2/4)... ', 'total_count', None, None),
+    DownloaderStates.FILTERING_ITEMS3: ('Filtering files (3/4)... ', 'total_count', None, None),
+    DownloaderStates.FILTERING_ITEMS4: ('Filtering files (4/4)... ', 'total_count', None, None),
+    DownloaderStates.DOWNLOADING: ('Downloading... ', 'processed_count', ' / ', 'total_count_all'),
+}
+
+CONNECT_TIMEOUT_BASE = 10
+CONNECT_RETRIES_BASE = 10
+CONNECT_RETRIES_CHUNK = 5
+CONNECT_RETRIES_PROXY_MULT = 3
+'''proxy / ssl errors do not consume normal retries but are capped at retries * this value'''
+RETRY_AFTER_MAX_SECONDS = 120
+
+THREADS_MAX_ITEMS = 8
+DOWNLOAD_CHUNK_SIZE = 2097152  # 2 Mb
+WRITE_CHUNK_SIZE = 524288  # 512 Kb
+
+SITENAME_B_RX = 'aHR0cHM6Ly9hcGkucnVsZTM0Lnh4eC8='
+SITENAME_B_RN = 'aHR0cHM6Ly9ydWxlMzRoZW50YWkubmV0Lw=='
+SITENAME_B_RS = 'aHR0cHM6Ly9ydWxlMzQudXMv'
+SITENAME_B_RP = 'aHR0cHM6Ly9ydWxlMzQucGFoZWFsLm5ldC8='
+SITENAME_B_EN = 'aHR0cHM6Ly9lNjIxLm5ldC8='
+SITENAME_B_XB = 'aHR0cHM6Ly94Ym9vcnUuY29tLw=='
+SITENAME_B_BB = 'aHR0cHM6Ly9iYm9vcnUuY29tLw=='
+SITENAME_B_DB = 'aHR0cHM6Ly9kYW5ib29ydS5kb25tYWkudXMv'
+MESSAGE_EMPTY_SEARCH_RESULT_RX = 'Tm9ib2R5IGhlcmUgYnV0IHVzIGNoaWNrZW5zIQ=='
+MESSAGE_EMPTY_SEARCH_RESULT_RN = 'Tm8gaW1hZ2VzIHdlcmUgZm91bmQgdG8gbWF0Y2ggdGhlIHNlYXJjaCBjcml0ZXJpYQ=='
+SOURCE_DEFAULT = 'Unknown'
+FILE_NAME_FULL_MAX_LEN = 240
+UTF8 = 'utf-8'
+
+MODULE_ABBR_RX = 'rx'
+MODULE_ABBR_RN = 'rn'
+MODULE_ABBR_RS = 'rs'
+MODULE_ABBR_RP = 'rp'
+MODULE_ABBR_EN = 'en'
+MODULE_ABBR_XB = 'xb'
+MODULE_ABBR_BB = 'bb'
+MODULE_ABBR_DB = 'db'
+FILE_NAME_PREFIX_RX = f'{MODULE_ABBR_RX}_'
+FILE_NAME_PREFIX_RN = f'{MODULE_ABBR_RN}_'
+FILE_NAME_PREFIX_RS = f'{MODULE_ABBR_RS}_'
+FILE_NAME_PREFIX_RP = f'{MODULE_ABBR_RP}_'
+FILE_NAME_PREFIX_EN = f'{MODULE_ABBR_EN}_'
+FILE_NAME_PREFIX_XB = f'{MODULE_ABBR_XB}_'
+FILE_NAME_PREFIX_BB = f'{MODULE_ABBR_BB}_'
+FILE_NAME_PREFIX_DB = f'{MODULE_ABBR_DB}_'
+TAGS_CONCAT_CHAR_RX = '+'
+TAGS_CONCAT_CHAR_RN = '+'
+TAGS_CONCAT_CHAR_RS = '+'
+TAGS_CONCAT_CHAR_RP = ' '
+TAGS_CONCAT_CHAR_EN = '+'
+TAGS_CONCAT_CHAR_XB = '+'
+TAGS_CONCAT_CHAR_BB = '+'
+TAGS_CONCAT_CHAR_DB = '+'
+ID_VALUE_SEPARATOR_CHAR_RX = ':'
+ID_VALUE_SEPARATOR_CHAR_RN = '='
+ID_VALUE_SEPARATOR_CHAR_RS = ':'
+ID_VALUE_SEPARATOR_CHAR_RP = '='
+ID_VALUE_SEPARATOR_CHAR_EN = ':'
+ID_VALUE_SEPARATOR_CHAR_XB = ':'
+ID_VALUE_SEPARATOR_CHAR_BB = ':'
+ID_VALUE_SEPARATOR_CHAR_DB = ':'
+MODULE_CHOICES = (MODULE_ABBR_RX, MODULE_ABBR_RN, MODULE_ABBR_RS, MODULE_ABBR_RP, MODULE_ABBR_EN, MODULE_ABBR_XB, MODULE_ABBR_BB, MODULE_ABBR_DB)
+'''modules known to the core; extensions may register more (see ProcModule.known_names())'''
+MODULES_BUILTIN = (MODULE_ABBR_RX, MODULE_ABBR_DB)
+'''modules that are always available (default extensions)'''
+
+IDVAL_EQ_SEPARATORS: dict[str, str] = {
+    MODULE_ABBR_RX: ID_VALUE_SEPARATOR_CHAR_RX,
+    MODULE_ABBR_RN: ID_VALUE_SEPARATOR_CHAR_RN,
+    MODULE_ABBR_RS: ID_VALUE_SEPARATOR_CHAR_RS,
+    MODULE_ABBR_RP: ID_VALUE_SEPARATOR_CHAR_RP,
+    MODULE_ABBR_EN: ID_VALUE_SEPARATOR_CHAR_EN,
+    MODULE_ABBR_XB: ID_VALUE_SEPARATOR_CHAR_XB,
+    MODULE_ABBR_BB: ID_VALUE_SEPARATOR_CHAR_BB,
+    MODULE_ABBR_DB: ID_VALUE_SEPARATOR_CHAR_DB,
+}
+TAG_SEPARATORS: dict[str, str] = {
+    MODULE_ABBR_RX: TAGS_CONCAT_CHAR_RX,
+    MODULE_ABBR_RN: TAGS_CONCAT_CHAR_RN,
+    MODULE_ABBR_RS: TAGS_CONCAT_CHAR_RS,
+    MODULE_ABBR_RP: TAGS_CONCAT_CHAR_RP,
+    MODULE_ABBR_EN: TAGS_CONCAT_CHAR_EN,
+    MODULE_ABBR_XB: TAGS_CONCAT_CHAR_XB,
+    MODULE_ABBR_BB: TAGS_CONCAT_CHAR_BB,
+    MODULE_ABBR_DB: TAGS_CONCAT_CHAR_DB,
+}
+
+DATE_MIN_DEFAULT = '01-01-1970'
+FMT_DATE = '%d-%m-%Y'
+LAUCH_DATE = datetime.datetime.today().date()
+DATE_MAX_DEFAULT = LAUCH_DATE.strftime(FMT_DATE)
+ITEMS_PER_PAGE_RX = 1000  # fixed 42 for html, up to 1000 for dapi
+RATE_LIMIT_RX = (60, 60)
+'''(requests, seconds) api.rule34.xxx allows one API key: "You currently have a limit of 60 requests every 60 second(s)."
+The site's admins may give a key more: Settings > API keys (lynxx.network.key_rate_limit)'''
+ITEMS_PER_PAGE_RN = 63  # fixed 63
+ITEMS_PER_PAGE_RS = 42  # fixed 42
+ITEMS_PER_PAGE_RP = 100  # fixed 70 for html, up to 100 for api
+ITEMS_PER_PAGE_EN = 320  # up to 320 for both html and api
+ITEMS_PER_PAGE_XB = 1000  # fixed 42 for html, up to 1000 for dapi
+ITEMS_PER_PAGE_BB = 1000  # fixed 42 for html, up to 1000 for dapi
+ITEMS_PER_PAGE_DB = 200  # up to 200 for api
+PREVIEW_PAGE_SIZE_DEFAULT = 200
+'''default page size of a listing page read as the Preview reads it (rule34 lists 1000 posts per api page), see
+Downloader._listing_page_size'''
+PICK_IDS_MAX = 1000
+'''-pick_ids: most posts one pick job takes (the Preview pages hold at most 1000 posts)'''
+PICK_EXTRA_PAGES = 2
+'''pick mode: pages read after the Preview's page while some picked post is still missing (newer posts push the others down)'''
+TAG_AUTOCOMPLETE_LENGTH_MIN = 2
+TAG_AUTOCOMPLETE_NUMBER_MAX = 7
+TAG_LENGTH_MIN = 4
+TAG_LENGTH_MAX_RX = 9
+TAG_LENGTH_MAX_RN = 21
+TAGS_STRING_LENGTH_MAX_RX = 3300  # '4000 after all special symbols encoded', longer tags string will always return empty result
+TAGS_STRING_LENGTH_MAX_RN = 300  # real value is unknown, tested up to 2400 but longer strings take forever to process serverside
+TAGS_STRING_LENGTH_MAX_RS = 7000  # real value is unknown, last tested: 6600
+TAGS_STRING_LENGTH_MAX_RP = 300  # real value is unknown, has max tags limit
+TAGS_STRING_LENGTH_MAX_EN = 3300  # real value is unknown, has max tags limit
+TAGS_STRING_LENGTH_MAX_XB = 3300  # real value is unknown, assumed RX limits
+TAGS_STRING_LENGTH_MAX_BB = 3300  # real value is unknown, assumed RX limits
+TAGS_STRING_LENGTH_MAX_DB = 3300  # real value is unknown, has max tags limit (2 for anonymous users)
+
+ACTION_STORE_TRUE = 'store_true'
+ACTION_APPEND = 'append'
+
+PLATFORM_WINDOWS = 'win32'
+PLATFORM_LINUX = 'linux'
+PLATFORM_DARWIN = 'darwin'
+
+SUPPORTED_PLATFORMS = {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_DARWIN}
+
+KNOWN_EXTENSIONS_VID = ('mp4', 'webm')
+KNOWN_EXTENSIONS_IMG = ('swf', 'png', 'jpg', 'jpeg', 'gif', 'webp')
+KNOWN_EXTENSIONS_AUD = ('mp3', 'ogg', 'oga', 'opus', 'flac', 'm4a', 'wav')
+'''audio files: only modules declaring 'audio' media produce them (builtin modules never do)'''
+KNOWN_EXTENSIONS = KNOWN_EXTENSIONS_VID + KNOWN_EXTENSIONS_IMG + KNOWN_EXTENSIONS_AUD
+
+
+class MediaKind:
+    IMAGE = 'image'
+    VIDEO = 'video'
+    AUDIO = 'audio'
+
+
+def media_kind_by_ext(ext: str) -> str:
+    ext = ext.lower().lstrip('.')
+    return MediaKind.VIDEO if ext in KNOWN_EXTENSIONS_VID else MediaKind.AUDIO if ext in KNOWN_EXTENSIONS_AUD else MediaKind.IMAGE
+KNOWN_EXTENSIONS_STR = ' '.join(f'*.{e}' for e in KNOWN_EXTENSIONS)
+
+INT_BOUNDS_DEFAULT = (0, 0)
+
+FILE_NAME_ALIASES = 'all_tag_aliases.json'
+
+API_KEY_LEN_RX = 128
+
+
+NEGATIVE_GROUP_MATCH_LIST_MAX_LEN = 50
+SUBFOLDER_NAME_LEN_MAX = 20
+
+
+class ThreadInterruptException(Exception):
+    pass
+
+
+class ModuleCaps:
+    """Optional module capabilities, used to resolve argument conflicts without hardcoding module names"""
+    API_KEY = 'api_key'
+    API_KEY_REQUIRED = 'api_key_required'
+    VIDEO_FORMAT_CHOICE = 'video_format_choice'
+    VIDEO_QUALITY_CHOICE = 'video_quality_choice'
+    '''module picks a video file by height (-max_vres, Downloader.max_video_height; SDK 1.3, Lynxx 2.0.14). Extensions write the
+    plain string in CAPABILITIES so that they still load on older cores'''
+    PARENT_CHILD = 'parent_child'
+    SOURCES = 'sources'
+    DATE_FILTER = 'date_filter'
+    COMMENTS = 'comments'
+    PREVIEW = 'preview'
+    GENDER_TAGS = 'gender_tags'
+    '''module has a measured gender tag ruleset (lynxx/gender_rules)'''
+
+
+class Mem:
+    KB: int = 1024
+    MB: int = KB * 1024
+    GB: int = MB * 1024
+
+
+class APIKey:
+    __slots__ = ('key', 'user_id')
+
+    def __init__(self, api_key: str | None = '') -> None:
+        self.key: str = api_key.split(',', 1)[0] if api_key else ''
+        self.user_id: str = api_key.split(',', 1)[1] if api_key else ''
+
+    def __str__(self) -> str:
+        return f'key=\'{self.key}\', user=\'{self.user_id}\''
+
+    def __bool__(self) -> bool:
+        return bool(self.key) and bool(self.user_id)
+
+    __repr__ = __str__
+
+
+class DownloaderOptions:
+    OPTION_CREATE_SUBFOLDERS = 'create_subfolders'
+    OPTION_SUBFOLDER_TASK_NUM = 'override_task_num'
+    OPTION_SUBFOLDER_TASKS_COUNT = 'override_tasks_count'
+    OPTION_GARBLE_PERSONAL_INFO = 'garble_personal_info'
+
+
+# PyCharm bug PY-53388 (IDE thinks auto() needs an argument)
+# noinspection PyArgumentList
+class ModuleConfigType(IntEnum):
+    CONFIG_API_KEY = auto()
+    CONFIG_API_USER = auto()  # unused
+
+#
+#
+#########################################

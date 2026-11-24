@@ -1,0 +1,453 @@
+name: Release
+
+# Builds Lynxx like Mirrix's release pipeline, files named <app>-<os>-<arch>_v<version>.<ext>:
+# - desktop app (Electron + the frozen Python core of tools/build_core.py). The core is a native PyInstaller build, so every
+#   architecture is built on its own runner (no cross-builds):
+#   Linux x64 (.AppImage, .deb) on ubuntu-latest, arm64 on ubuntu-24.04-arm;
+#   Windows x64 / arm64 (lynxx-setup-<arch>_v<version>.exe) on windows-latest / windows-11-arm;
+#   macOS Apple Silicon / Intel (.dmg, .zip, unsigned) on macos-latest / macos-15-intel;
+# - standalone gender model server (tools/build_model_server.py): lynxx-model-server-<os>-<arch>-<variant>_v<version>,
+#   CPU on Linux x64 / arm64, Windows x64 and macOS arm64, DirectML on Windows x64;
+# - the model server Docker image (CPU, linux/amd64 + linux/arm64): ghcr.io/<owner>/lynxx-model-server.
+# Every release has SHA256SUMS.txt and build-info.json (version, tree, commit, run).
+# - Pull requests and manual runs: Linux x64 is built and smoke-tested, nothing is published.
+# - Push to staging:    pre-release v<version>-rc.<run> and image tag <version>-rc.<run>.
+# - Push to production: release v<version> (latest) from the newest candidate of <version> whose build-info.json matches
+#   this commit's tree: its files are verified against SHA256SUMS.txt and republished, the image is retagged <version>
+#   and latest, nothing is rebuilt. Without a matching candidate production builds everything.
+# Release notes: docs/releases/v<version>.md when it exists, else GitHub's generated notes.
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - production
+  push:
+    branches:
+      - staging
+      - production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE_NAME: lynxx-model-server
+
+jobs:
+  plan:
+    name: Plan version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app_version: ${{ steps.plan.outputs.app_version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      channel: ${{ steps.plan.outputs.channel }}
+      publish: ${{ steps.plan.outputs.publish }}
+      tree: ${{ steps.plan.outputs.tree }}
+      reuse_tag: ${{ steps.plan.outputs.reuse_tag }}
+      skip: ${{ steps.plan.outputs.skip }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      image: ${{ steps.plan.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compute version, tag, platforms and release candidate to reuse
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BRANCH: ${{ github.ref_name }}
+          RUN: ${{ github.run_number }}
+          OWNER: ${{ github.repository_owner }}
+          # Paths that never reach a release file: a push that changes only these needs no release. app/test/: the app's own
+          # tests (electron-builder packs only the 'files' of app/package.json)
+          # maintainer tools that no release file comes from (catalog build / signing, the self-test report reader, tag list
+          # typing) count as docs, and so do the 2tags/ lists the app never bundles: tools/build_core.py takes the aliases only,
+          # its catalog takes the lists of rn / rs / rp (no source or a merge source); rx, db, xb, bb, en read theirs from the
+          # site (lynxx/tests/test_batch_d_app.py BuildCoreTests checks this against the build)
+          NOT_SHIPPED: '^(docs/|\.github/|\.forgejo/|\.claude/|lynxx/tests/|app/test/|tools/(build_catalog|sign_catalog|check_selftest|type_tag_list)\.py$|2tags/(rx|db|xb|bb|en)_tags\.json$|[^/]+\.md$|\.gitignore$)'
+        run: |
+          version="$(jq -r .version app/package.json)"
+          py_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [ "$version" != "$py_version" ]; then
+            echo "::error::app/package.json ($version) and pyproject.toml ($py_version) disagree on the version"
+            exit 1
+          fi
+          tree="$(git rev-parse 'HEAD^{tree}')"
+          publish=false; tag=""; reuse_tag=""; skip=false
+          if [ "$EVENT" = push ]; then
+            info="$(mktemp -d)"; released=""
+            if gh release download "v$version" --repo "$GITHUB_REPOSITORY" --pattern build-info.json --dir "$info" 2>/dev/null; then
+              released="$(jq -r '.commit // empty' "$info/build-info.json")"
+            fi
+            if [ -n "$released" ]; then
+              compare="$(gh api "repos/$GITHUB_REPOSITORY/compare/$released...$GITHUB_SHA")"
+              shipped="$(jq -r '.files[].filename' <<<"$compare" | grep -vE "$NOT_SHIPPED" || true)"
+              if [ -z "$shipped" ] && [ "$(jq '.files | length' <<<"$compare")" -lt 300 ]; then skip=true; fi
+            fi
+          fi
+          if [ "$skip" = true ]; then
+            channel=none; app_version="$version"
+            echo "::notice::Only docs or workflows changed since v$version; nothing to publish."
+          elif [ "$EVENT" = push ] && [ "$BRANCH" = production ]; then
+            channel=stable; app_version="$version"; tag="v$version"; publish=true
+          elif [ "$EVENT" = push ] && [ "$BRANCH" = staging ]; then
+            channel=rc; app_version="$version"; tag="v$version-rc.$RUN"; publish=true
+            if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::error::v$version is already released. Bump the version (app/package.json, pyproject.toml)."
+              exit 1
+            fi
+          else
+            channel=dev; app_version="$version"
+          fi
+          if [ "$publish" = true ] && gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists. Bump the version."
+            exit 1
+          fi
+          if [ "$channel" = stable ]; then
+            pattern="^v$(printf '%s' "$version" | sed 's/\./\\./g')-rc\.[0-9]+$"
+            candidates="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isPrerelease \
+              --jq '.[] | select(.isPrerelease) | .tagName' | grep -E "$pattern" | sort -t. -k4,4nr || true)"
+            for candidate in $candidates; do
+              info="$(mktemp -d)"
+              if gh release download "$candidate" --repo "$GITHUB_REPOSITORY" --pattern build-info.json --dir "$info" 2>/dev/null \
+                && jq -e --arg v "$version" --arg t "$tree" '.version == $v and .tree == $t' "$info/build-info.json" >/dev/null; then
+                reuse_tag="$candidate"; break
+              fi
+              echo "$candidate does not match this commit; not reused"
+            done
+          fi
+          # platforms: every one when publishing, Linux x64 only for pull requests and manual runs
+          all='[
+            {"platform":"linux","runner":"ubuntu-latest","builder":"--linux AppImage deb --x64","unpacked":"linux-unpacked/lynxx","model_server":"cpu"},
+            {"platform":"linux-arm64","runner":"ubuntu-24.04-arm","builder":"--linux AppImage deb --arm64","unpacked":"linux-arm64-unpacked/lynxx","model_server":"cpu"},
+            {"platform":"win","runner":"windows-latest","builder":"--win nsis --x64","unpacked":"win-unpacked/Lynxx.exe","model_server":"cpu directml"},
+            {"platform":"win-arm64","runner":"windows-11-arm","builder":"--win nsis --arm64","unpacked":"win-arm64-unpacked/Lynxx.exe","model_server":""},
+            {"platform":"mac","runner":"macos-latest","builder":"--mac dmg zip --arm64","unpacked":"mac-arm64/Lynxx.app/Contents/MacOS/Lynxx","model_server":"cpu"},
+            {"platform":"mac-x64","runner":"macos-15-intel","builder":"--mac dmg zip --x64","unpacked":"mac/Lynxx.app/Contents/MacOS/Lynxx","model_server":""}
+          ]'
+          if [ "$publish" = true ]; then matrix="$(jq -c '{include: .}' <<<"$all")"
+          else matrix="$(jq -c '{include: [.[] | select(.platform == "linux")]}' <<<"$all")"; fi
+          image="ghcr.io/$(tr '[:upper:]' '[:lower:]' <<<"$OWNER")/$IMAGE_NAME"
+          {
+            echo "app_version=$app_version"; echo "tag=$tag"; echo "channel=$channel"; echo "publish=$publish"
+            echo "tree=$tree"; echo "reuse_tag=$reuse_tag"; echo "skip=$skip"; echo "matrix=$matrix"; echo "image=$image"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Lynxx $app_version ($channel) ${tag:+→ $tag}"
+            if [ -n "$reuse_tag" ]; then echo "Republishes the files of $reuse_tag; nothing is rebuilt."; fi
+            if [ "$skip" = true ]; then echo "Only docs or workflows changed since v$version; nothing to publish."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: Package (${{ matrix.platform }})
+    needs: plan
+    if: needs.plan.outputs.reuse_tag == '' && needs.plan.outputs.skip != 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      PYTHONUTF8: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # The core leaves the Tk GUI out (tools/build_core.py): its drag and drop package is not needed
+      - name: Build the frozen core (with its smoke test)
+        run: |
+          python -m pip install --upgrade pip
+          grep -v '^tkinterdnd2' requirements.txt > "$RUNNER_TEMP/requirements-core.txt"
+          python -m pip install -r "$RUNNER_TEMP/requirements-core.txt" 'pyinstaller>=6.21' 'anthropic>=2.9'
+          python tools/build_core.py
+
+      - name: Install fpm (deb on arm64)
+        if: matrix.platform == 'linux-arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+          echo "USE_SYSTEM_FPM=true" >> "$GITHUB_ENV"
+
+      - name: Build the app
+        working-directory: app
+        env:
+          APP_VERSION: ${{ needs.plan.outputs.app_version }}
+          BUILDER_ARGS: ${{ matrix.builder }}
+        run: |
+          npm ci
+          npm run check
+          npm version "$APP_VERSION" --no-git-tag-version --allow-same-version
+          # fpm and mksquashfs keep the modes they find: an installed /opt/Lynxx must not be writable by others
+          if [ "$RUNNER_OS" = Linux ]; then
+            umask 0022
+            find .. -path ../.git -prune -o -exec chmod go+rX,go-w {} +
+          fi
+          # shellcheck disable=SC2086
+          npx --no-install electron-builder $BUILDER_ARGS --publish never
+          ls -l dist
+
+      - name: Check installer file modes (Linux)
+        if: startsWith(matrix.platform, 'linux')
+        run: |
+          # every entry of the .deb readable by others, directories searchable, nothing writable by group / others
+          bad="$(for deb in app/dist/*.deb; do dpkg-deb -c "$deb"; done | awk '{m=$1} substr(m,8,1)!="r" || (substr(m,1,1)=="d" && substr(m,10,1)!="x") || substr(m,6,1)=="w" || substr(m,9,1)=="w" {print}')"
+          if [ -n "$bad" ]; then
+            echo "::error::the .deb has entries with wrong modes"
+            echo "$bad" | head -20
+            exit 1
+          fi
+
+      - name: Install xvfb (Linux)
+        if: startsWith(matrix.platform, 'linux')
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      # The app's own self-test (quick: no network) on the packaged build: frozen core, sidecar contract, settings,
+      # extension generator, index tools. A python wrapper bounds it (macOS has no timeout command).
+      - name: Self-test of the packaged app
+        env:
+          LYNXX_SELFTEST_QUICK: '1'
+          UNPACKED: app/dist/${{ matrix.unpacked }}
+        run: |
+          export LYNXX_SELFTEST_DIR="$RUNNER_TEMP/selftest"
+          mkdir -p "$LYNXX_SELFTEST_DIR"
+          run_bounded() { python -c 'import subprocess, sys; sys.exit(subprocess.run(sys.argv[1:], timeout=600).returncode)' "$@"; }
+          if [ "$RUNNER_OS" = Linux ]; then
+            run_bounded xvfb-run -a "$UNPACKED" --no-sandbox
+          else
+            run_bounded "$UNPACKED"
+          fi
+          python tools/check_selftest.py "$LYNXX_SELFTEST_DIR/report.json"
+
+      # a failed self-test keeps its full report and screenshots (the log shows each value cut at 400 characters)
+      - name: Keep the self-test report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: selftest-${{ matrix.platform }}
+          path: ${{ runner.temp }}/selftest
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build the model server bundles
+        if: matrix.model_server != ''
+        env:
+          VARIANTS: ${{ matrix.model_server }}
+        run: |
+          for variant in $VARIANTS; do
+            python tools/build_model_server.py --variant "$variant" --out dist-model-server
+          done
+          ls -l dist-model-server
+
+      # one flat folder: the release job merges every platform's files side by side
+      - name: Collect release files
+        if: needs.plan.outputs.publish == 'true'
+        run: |
+          shopt -s nullglob
+          out="$RUNNER_TEMP/release-files"
+          mkdir -p "$out"
+          files=(app/dist/lynxx-*.AppImage app/dist/lynxx-*.deb app/dist/lynxx-setup-*.exe app/dist/lynxx-*.dmg \
+            app/dist/lynxx-mac-*.zip dist-model-server/lynxx-model-server-*.tar.gz dist-model-server/lynxx-model-server-*.zip)
+          if [ "${#files[@]}" -eq 0 ]; then echo "::error::no release file was built"; exit 1; fi
+          cp -- "${files[@]}" "$out/"
+          ls -l "$out"
+
+      - name: Upload release files
+        if: needs.plan.outputs.publish == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: lynxx-${{ matrix.platform }}
+          path: ${{ runner.temp }}/release-files/*
+          if-no-files-found: error
+          retention-days: 1
+
+  image:
+    name: Model server image
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.plan.outputs.image }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      REUSE_TAG: ${{ needs.plan.outputs.reuse_tag }}
+      CHANNEL: ${{ needs.plan.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the GitHub container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Tags
+        id: tags
+        run: |
+          tags="$IMAGE:${TAG#v}"
+          if [ "$CHANNEL" = stable ]; then tags="$tags,$IMAGE:latest"; fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+      # production with a matching candidate: the candidate's image becomes <version> and latest
+      - name: Retag the release candidate
+        if: env.REUSE_TAG != ''
+        run: |
+          docker buildx imagetools create -t "$IMAGE:${TAG#v}" -t "$IMAGE:latest" "$IMAGE:${REUSE_TAG#v}"
+          docker buildx imagetools inspect "$IMAGE:${TAG#v}"
+
+      - name: Build and push
+        if: env.REUSE_TAG == ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/model_server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Lynxx gender model server (CPU): HTTP API around the WD tagger v3 model
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ needs.plan.outputs.app_version }}
+
+  release:
+    name: Publish GitHub release
+    needs: [plan, package, image]
+    if: >-
+      always() && needs.plan.result == 'success' && needs.plan.outputs.publish == 'true'
+      && needs.image.result == 'success'
+      && (needs.package.result == 'success'
+      || (needs.package.result == 'skipped' && needs.plan.outputs.reuse_tag != ''))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download release files
+        if: needs.plan.outputs.reuse_tag == ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: lynxx-*
+          path: ${{ runner.temp }}/dist
+          merge-multiple: true
+
+      - name: Write checksums and build info
+        if: needs.plan.outputs.reuse_tag == ''
+        working-directory: ${{ runner.temp }}/dist
+        env:
+          VERSION: ${{ needs.plan.outputs.app_version }}
+          TREE: ${{ needs.plan.outputs.tree }}
+          RUN_ID: ${{ github.run_id }}
+          IMAGE: ${{ needs.plan.outputs.image }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          shopt -s nullglob
+          # older artifacts kept their folders: every file goes to the top of dist
+          find . -mindepth 2 -type f -name 'lynxx-*' -exec mv -t . -- {} +
+          find . -mindepth 1 -type d -empty -delete
+          files=(lynxx-*)
+          if [ "${#files[@]}" -eq 0 ]; then echo "::error::no release file was downloaded"; exit 1; fi
+          sha256sum -- "${files[@]}" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          jq -n --arg version "$VERSION" --arg tree "$TREE" --arg commit "$GITHUB_SHA" --arg run "$RUN_ID" \
+            --arg image "$IMAGE:${TAG#v}" \
+            '{version: $version, tree: $tree, commit: $commit, run: ($run | tonumber), image: $image}' > build-info.json
+          cat build-info.json
+
+      - name: Reuse the release candidate
+        if: needs.plan.outputs.reuse_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REUSE_TAG: ${{ needs.plan.outputs.reuse_tag }}
+          IMAGE: ${{ needs.plan.outputs.image }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          gh release download "$REUSE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/dist"
+          cd "$RUNNER_TEMP/dist"
+          sha256sum -c SHA256SUMS.txt
+          jq --arg image "$IMAGE:${TAG#v}" '.image = $image' build-info.json > build-info.tmp && mv build-info.tmp build-info.json
+          ls -l
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          CHANNEL: ${{ needs.plan.outputs.channel }}
+          VERSION: ${{ needs.plan.outputs.app_version }}
+          IMAGE: ${{ needs.plan.outputs.image }}
+        run: |
+          flags=(--latest)
+          if [ "$CHANNEL" = rc ]; then flags=(--prerelease --latest=false); fi
+          notes="docs/releases/v$VERSION.md"
+          if [ -f "$notes" ]; then
+            {
+              if [ "$CHANNEL" = rc ]; then echo "> Bản thử trước khi phát hành (release candidate) của Lynxx $VERSION."; echo; fi
+              cat "$notes"
+              echo; echo "Image Docker của model server: \`docker pull $IMAGE:${TAG#v}\`"
+            } > "$RUNNER_TEMP/notes.md"
+            flags+=(--notes-file "$RUNNER_TEMP/notes.md")
+          else
+            flags+=(--generate-notes)
+          fi
+          gh release create "$TAG" "$RUNNER_TEMP"/dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Lynxx ${TAG#v}" \
+            "${flags[@]}"
+
+      - name: Delete release file artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ids="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[].id')"
+          for id in $ids; do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            echo "Deleted artifact $id"
+          done

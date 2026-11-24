@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lynxx.local/schemas/extension-manifest.schema.json",
+  "title": "Lynxx extension manifest (apiVersion 1)",
+  "description": "manifest.json of a Lynxx site extension. Validated at runtime by lynxx/modspec.py (ExtensionManifest).",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "abbr",
+    "version",
+    "entry"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+      "description": "unique extension id, also the install folder name"
+    },
+    "name": {
+      "type": "string",
+      "description": "display name"
+    },
+    "abbr": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]{1,3}$",
+      "description": "module abbreviation used by CLI (-module), file prefix (<abbr>_) and tag list (<abbr>_tags.json)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][\\w.]+)?$"
+    },
+    "apiVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "downloader"
+    },
+    "default": {
+      "type": "boolean",
+      "description": "shown as default module (only builtin extensions should set this)"
+    },
+    "site": {
+      "type": "string",
+      "format": "uri"
+    },
+    "media": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "image",
+          "video",
+          "audio"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "entry": {
+      "type": "string",
+      "pattern": "^(?:[\\w.]+|[\\w-]+\\.py):[A-Za-z_]\\w*$",
+      "description": "'downloader.py:ClassName' (file inside the extension folder) or 'lynxx.module:ClassName' (builtin only). Class must subclass lynxx.download.Downloader"
+    },
+    "minSdkVersion": {
+      "type": "string",
+      "pattern": "^\\d{1,3}\\.\\d{1,3}(?:\\.\\d{1,3})?$",
+      "description": "lowest lynxx.sdk version ('MAJOR.MINOR') the downloader needs: same MAJOR as the running Lynxx and a MINOR not newer, otherwise the extension is refused at install and at load with a clear message"
+    },
+    "tagList": {
+      "type": "string",
+      "description": "tag list file name used for autocompletion, '<abbr>_tags.json' (looked up by that name in <data dir>/tags and 2tags/). A file of that name next to manifest.json is the extension's own list (used when it is installed; the generator puts the site's list there). The extension generator sets it when the engine has a tag listing: lynxx/tags_updater.py then reads the list from the site given by 'site' and '$generator.engine'"
+    },
+    "tagUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry"],
+      "properties": {
+        "entry": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][\\w-]*\\.py:[A-Za-z_]\\w*$",
+          "description": "'tags.py:read_tags': a function of a .py file at the top of the extension folder, called with a lynxx.sdk.TagJob; it yields (name, posts, type) for each tag of the site"
+        },
+        "merge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minPosts"],
+          "properties": {
+            "minPosts": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 1000000,
+              "description": "the update reads every tag of the site with at least this many posts (Lynxx asks the job with job.min_posts >= minPosts)"
+            }
+          },
+          "description": "the update reads only part of the site's list: every tag with at least minPosts posts. Lynxx merges the read into the list in use (the tags read take their new counts, new tags are added, every other tag is kept) instead of replacing it. Lynxx 2.0.10 and later; older cores refuse a manifest with this key"
+        }
+      },
+      "description": "the extension's own tag list update (needs minSdkVersion '1.1'). Lynxx runs it only when the user asks (Tags A-Z button, 'lynxx-core tags --modules <abbr>'), never on the app's schedule, when the app opens or after the install; its requests go through the core (lynxx/tags_updater.py, TagJob). The extension ships its list as 'tagList'"
+    },
+    "search": {
+      "type": "object",
+      "description": "search kinds (tags '<token><value>' typed in the app's tag input or added from Tags A-Z; 2.0.11 had a \"Tìm theo\" picker), the site's own metatag names and whether 'id:' searches work. Lynxx 2.0.11 and later; older cores refuse a manifest with this key ('unknown field(s): search') and keep the installed version. Unknown keys inside it and kinds with an unknown id, input, use or order are skipped (a later core may know them). Type kinds (artist, character, copyright) need no declaration: the app offers them when the module's tag list has tags of that type (tags.kinds)",
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "enum": [
+                  "artist",
+                  "character",
+                  "copyright",
+                  "model",
+                  "category",
+                  "uploader",
+                  "favorites",
+                  "pool",
+                  "collection",
+                  "keyword"
+                ],
+                "description": "what the kind searches by; the app labels it (Nghệ sĩ, Nhân vật, Series, Người mẫu, Chuyên mục, Người đăng, Yêu thích của người dùng, Pool, Bộ sưu tập, Từ khoá). At most one kind per id"
+              },
+              "token": {
+                "type": "string",
+                "pattern": "^[a-z][a-z_]{0,23}[:=]$",
+                "description": "the kind is the tag '<token><value>' of the query (ex. 'artist:some_artist'). Without token (and without use) the kind is a plain tag of tagType (input tag, not a listing). At most one kind per token"
+              },
+              "value": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "python regex of the value: the core accepts '-?<token>(?:<value>)' instead of its own tag characters (ex. '[^\\\\s:]+' for user names with capitals or dots). Default '\\\\S+' ('\\\\d+' for input id). Back references, look-arounds and a repeat inside a repeat are refused"
+              },
+              "input": {
+                "enum": [
+                  "tag",
+                  "text",
+                  "id"
+                ],
+                "description": "tag (default): autocomplete; text: free words, the app turns spaces into '_'; id: digits"
+              },
+              "tagType": {
+                "enum": [
+                  "general",
+                  "artist",
+                  "character",
+                  "copyright",
+                  "metadata",
+                  "species",
+                  "lore"
+                ],
+                "description": "tag list type the app's autocomplete is filtered by (tags.autocomplete types)"
+              },
+              "listing": {
+                "type": "boolean",
+                "description": "the token selects another site listing (ex. /models/<x>/): it does not count towards maxTags, every plain tag of the query is checked locally (required tags, negative group), results come in the site's order (no id cursor, date limits refused), no 'or' group in the query nor the kind inside one, and one listing kind per query"
+              },
+              "pageSize": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000,
+                "description": "posts per page of that listing (0: the module's), used by DownloaderJsonApi._items_per_page (SDK 1.2)"
+              },
+              "example": {
+                "type": "string",
+                "description": "sample value shown by the app after the token (80 characters at most): the value alone ('some_user', not 'user:some_user'; a leading token is dropped)"
+              },
+              "label": {
+                "type": "string",
+                "description": "label instead of the app's own for the id (40 characters at most)"
+              },
+              "use": {
+                "enum": [
+                  "fav",
+                  "pool"
+                ],
+                "description": "the module's favorites / pool syntax (syntax.fav / syntax.pool): the token is 'favorited_by' / 'pool' + idSep, the existing favorites / pool pipeline runs; cannot be a listing"
+              },
+              "order": {
+                "enum": [
+                  "id",
+                  "site"
+                ],
+                "description": "id (default): newest first; site: the site's own order (ex. a pool in pool order), handled like a sort tag (no id cursor, no date limits)"
+              }
+            }
+          }
+        },
+        "metaNames": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "description": "the site's metatag names the core does not know (ex. 'vote' for 'vote:3:name'): shown as metatags, never moved to the local filters"
+        },
+        "idSearch": {
+          "type": "boolean",
+          "description": "false: 'id:' searches do not work on this module (the app's auto update adds no 'id:>N', selected posts and search by file name are not offered). Default true"
+        }
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "homepage": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$|^$",
+      "description": "reserved (informational). Archive integrity is checked against the sha256 given by the catalog entry / user, a manifest cannot contain the hash of its own archive"
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "apiKey": {
+          "type": "boolean"
+        },
+        "apiKeyFormat": {
+          "type": "string",
+          "description": "hint for UI, ex. 'KEY,USER_ID' or 'API_KEY,LOGIN'"
+        },
+        "rateLimit": {
+          "type": "object",
+          "description": "the limit the site publishes for one API key, ex. {\"requests\": 60, \"seconds\": 60}. The app offers a field for a higher limit the site gave the user's key",
+          "additionalProperties": false,
+          "required": [
+            "requests",
+            "seconds"
+          ],
+          "properties": {
+            "requests": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          }
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "syntax": {
+      "type": "object",
+      "description": "tag syntax and limits. Ignored for modules known to the core (rx, rn, rs, rp, en, xb, bb, db), required for new sites",
+      "additionalProperties": false,
+      "properties": {
+        "concat": {
+          "enum": [
+            "+",
+            " "
+          ]
+        },
+        "idSep": {
+          "enum": [
+            ":",
+            "="
+          ]
+        },
+        "maxTagsStringLen": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxTags": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 = unlimited"
+        },
+        "maxTagsSeparate": {
+          "type": "boolean",
+          "description": "true: maxTags applies to negative tags only"
+        },
+        "maxWildcards": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 = unlimited"
+        },
+        "freeMetaPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "metatags which do not count towards maxTags (ex. 'rating:')"
+        },
+        "localPositiveOverflow": {
+          "type": "boolean",
+          "description": "extra positive tags are checked locally instead of failing"
+        },
+        "metaCount": {
+          "type": "string",
+          "description": "regex: meta tag value part (ex. ':(?:[<>]=?)?\\\\d+')"
+        },
+        "sort": {
+          "type": "string",
+          "description": "regex: sorting meta tag"
+        },
+        "fav": {
+          "type": "string",
+          "description": "regex: favorites meta tag"
+        },
+        "pool": {
+          "type": "string",
+          "description": "regex: pool meta tag, empty = not supported"
+        }
+      }
+    },
+    "genderRules": {
+      "type": "string",
+      "description": "optional gender ruleset file inside the extension folder (lynxx/gender_rules/*.json format); adds capability gender_tags"
+    },
+    "safetyTags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "optional extra tags for the safety blacklist (can only add, never remove)"
+    }
+  },
+  "patternProperties": {
+    "^\\$": {
+      "description": "keys starting with $ are ignored by the loader (ex. $schema, $generator)"
+    }
+  }
+}

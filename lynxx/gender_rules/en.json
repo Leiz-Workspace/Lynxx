@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "module": "en",
+  "completeness": 0.92,
+  "female": {
+    "high": [
+      "female"
+    ],
+    "medium": []
+  },
+  "male": {
+    "high": [
+      "male"
+    ],
+    "medium": []
+  },
+  "both": [],
+  "exclusive": {
+    "only_female": [],
+    "only_male": []
+  },
+  "exclusiveFuta": [],
+  "solo": [
+    "solo"
+  ],
+  "pairSeparator": "/",
+  "pairWords": {
+    "female": [
+      "female"
+    ],
+    "male": [
+      "male"
+    ],
+    "futa": [
+      "intersex",
+      "gynomorph",
+      "herm"
+    ],
+    "futaMale": [
+      "andromorph",
+      "maleherm"
+    ],
+    "other": [
+      "ambiguous",
+      "ambiguous_gender"
+    ]
+  },
+  "other": [
+    "ambiguous_gender"
+  ],
+  "none": [],
+  "flags": {
+    "futa": [
+      "intersex",
+      "gynomorph",
+      "herm"
+    ],
+    "futaMale": [
+      "andromorph",
+      "maleherm"
+    ],
+    "trap": [
+      "femboy"
+    ],
+    "trapFemale": [],
+    "anthro": [
+      "anthro",
+      "feral"
+    ],
+    "real": [
+      "photography_(artwork)",
+      "real"
+    ],
+    "crowd": [
+      "group"
+    ],
+    "pov": [
+      "male_pov",
+      "female_pov"
+    ]
+  },
+  "maleBodypart": [
+    "male_pov",
+    "faceless_male"
+  ],
+  "femaleBodypart": [
+    "female_pov",
+    "faceless_female"
+  ],
+  "aliases": {}
+}

@@ -1,0 +1,418 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+#
+
+import re
+from collections.abc import Sequence
+
+from .module import ProcModule
+from .rex import re_favorited_by_tag, re_pool_tag, re_space_mult
+from .search_kinds import kind_of, kind_value_ok
+from .utils import startsendswith, unique_ordered
+
+__all__ = ('TagsError', 'convert_taglist', 'is_module_sort_tag', 'parse_error', 'parse_tags', 'register_module_syntax', 'reset_last_tags')
+
+DEFAULT_TAGS = ('sfw',)
+
+# language=PythonRegExp
+TAG_CHAR = r'[a-zÀ-ʯА-яぁ-㋾･-ﾟ一-鿿\d_%+\-/!()*\'.`~:&#;?@$^]'
+# language=PythonRegExp
+ANDGR_CHAR = r'[a-zÀ-ʯА-яぁ-㋾･-ﾟ一-鿿\d_%+\-/!()*\'.`~:|?&#;@$^]'
+# language=PythonRegExp
+SYMBOL_CHAR = r'[!@#$%^&*()\-_=+\[\]{}\\|\'";:,.<>/?`~]'
+# language=PythonRegExp
+META_CHAR = r'[a-z\d_\-.]'
+# language=PythonRegExp
+META_COUNT_RX = r':(?:(?:[<>]=?|=)?[a-z\d\-_]+?|[a-z\d_]+:[a-z\d_]+?)'
+# language=PythonRegExp
+META_COUNT_RN = r'(?:[<>]=?|=)[a-z\d\-_]+?'
+# language=PythonRegExp
+META_COUNT_RS = r':(?:(?:[<>]=?|=)?[a-z\d\-_]+?|[a-z\d_]+:[a-z\d_]+?)'
+# language=PythonRegExp
+META_COUNT_RP = r'(?:[<>]=?|=)[a-z\d\-_]+?'
+# language=PythonRegExp
+META_COUNT_EN = r':(?:[<>]=?|!)?[a-z\d\-_.]+?'
+# language=PythonRegExp
+META_COUNT_XB = r':(?:(?:[<>]=?|=)?[a-z\d\-_]+?|[a-z\d_]+:[a-z\d_]+?)'
+# language=PythonRegExp
+META_COUNT_BB = r':(?:(?:[<>]=?|=)?[a-z\d\-_]+?|[a-z\d_]+:[a-z\d_]+?)'
+META_COUNT_DB = r':(?:[<>]=?|!)?[a-z\d\-_.,]+?'
+# language=PythonRegExp
+META_SORT_RX = r'sort(?::[^:]+?){1,2}'
+# language=PythonRegExp
+META_SORT_RN = r'order=(?:id|score)_desc'
+# language=PythonRegExp
+META_SORT_RS = r'sort(?::[^:]+?){1,2}'
+# language=PythonRegExp
+META_SORT_RP = r'order=(?:id|score)_desc'
+# language=PythonRegExp
+META_SORT_EN = r'order:[^:]+(?:_(?:a|de)sc)?'
+# language=PythonRegExp
+META_SORT_XB = r'sort(?::[^:]+?){1,2}'
+# language=PythonRegExp
+META_SORT_BB = r'sort(?::[^:]+?){1,2}'
+META_SORT_DB = r'order:[a-z_]+'
+# language=PythonRegExp
+META_FAV_RX = r'favorited_by:\d+?'
+# language=PythonRegExp
+META_FAV_RN = r'favorited_by=[^:=]+?'
+# language=PythonRegExp
+META_FAV_RS = r'favorited_by:\d+?'
+# language=PythonRegExp
+META_FAV_RP = r'favorited_by=[^:=]+?'
+# language=PythonRegExp
+META_FAV_EN = r'favorited_by:(?:!\d+?|[^!][^:]+?)'
+# language=PythonRegExp
+META_FAV_XB = r'favorited_by:\d+?'
+# language=PythonRegExp
+META_FAV_BB = r'favorited_by:\d+?'
+META_FAV_DB = r'favorited_by:[^:]+?'
+# language=PythonRegExp
+META_POOL_RX = r'pool:\d+?'
+# language=PythonRegExp
+META_POOL_RN = r''
+'''not supported'''
+# language=PythonRegExp
+META_POOL_RS = r''
+'''not supported'''
+# language=PythonRegExp
+META_POOL_RP = r''
+'''not supported'''
+# language=PythonRegExp
+META_POOL_EN = r'(?:pool|set):[^:]+?'
+# language=PythonRegExp
+META_POOL_XB = r'pool:\d+?'
+# language=PythonRegExp
+META_POOL_BB = r'pool:\d+?'
+META_POOL_DB = r'pool:[^:]+?'
+# language=PythonRegExp
+RE_ORGR_PART_RX = fr'{TAG_CHAR}+?(?:{META_COUNT_RX})?'
+# language=PythonRegExp
+RE_ORGR_PART_RN = fr'{TAG_CHAR}+?(?:{META_COUNT_RN})?'
+# language=PythonRegExp
+RE_ORGR_PART_RS = fr'{TAG_CHAR}+?(?:{META_COUNT_RS})?'
+# language=PythonRegExp
+RE_ORGR_PART_RP = fr'{TAG_CHAR}+?(?:{META_COUNT_RP})?'
+# language=PythonRegExp
+RE_ORGR_PART_EN = fr'{TAG_CHAR}+?(?:{META_COUNT_EN})?'
+# language=PythonRegExp
+RE_ORGR_PART_XB = fr'{TAG_CHAR}+?(?:{META_COUNT_XB})?'
+# language=PythonRegExp
+RE_ORGR_PART_BB = fr'{TAG_CHAR}+?(?:{META_COUNT_XB})?'
+RE_ORGR_PART_DB = fr'{TAG_CHAR}+?(?:{META_COUNT_DB})?'
+# language=PythonRegExp
+RE_ANDGR_PART_U = fr'{ANDGR_CHAR}+?'
+
+RE_PLAINS = {
+    ProcModule.RX: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.RN: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.RS: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.RP: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.EN: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.XB: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.BB: re.compile(fr'^-?{TAG_CHAR}+?$'),
+    ProcModule.DB: re.compile(fr'^-?{TAG_CHAR}+?$'),
+}
+RE_SYMBOLS = {
+    ProcModule.RX: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.RN: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.RS: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.RP: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.EN: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.XB: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.BB: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+    ProcModule.DB: re.compile(fr'^-?{SYMBOL_CHAR}+?$'),
+}
+RE_METAS = {
+    ProcModule.RX: re.compile(fr'^{META_CHAR}+?{META_COUNT_RX}$'),
+    ProcModule.RN: re.compile(fr'^{META_CHAR}+?{META_COUNT_RN}$'),
+    ProcModule.RS: re.compile(fr'^{META_CHAR}+?{META_COUNT_RS}$'),
+    ProcModule.RP: re.compile(fr'^{META_CHAR}+?{META_COUNT_RP}$'),
+    ProcModule.EN: re.compile(fr'^{META_CHAR}+?{META_COUNT_EN}$'),
+    ProcModule.XB: re.compile(fr'^{META_CHAR}+?{META_COUNT_XB}$'),
+    ProcModule.BB: re.compile(fr'^{META_CHAR}+?{META_COUNT_BB}$'),
+    ProcModule.DB: re.compile(fr'^{META_CHAR}+?{META_COUNT_DB}$'),
+}
+RE_SORTS = {
+    ProcModule.RX: re.compile(fr'^{META_SORT_RX}$'),
+    ProcModule.RN: re.compile(fr'^{META_SORT_RN}$'),
+    ProcModule.RS: re.compile(fr'^{META_SORT_RS}$'),
+    ProcModule.RP: re.compile(fr'^{META_SORT_RP}$'),
+    ProcModule.EN: re.compile(fr'^{META_SORT_EN}$'),
+    ProcModule.XB: re.compile(fr'^{META_SORT_XB}$'),
+    ProcModule.BB: re.compile(fr'^{META_SORT_BB}$'),
+    ProcModule.DB: re.compile(fr'^{META_SORT_DB}$'),
+}
+RE_FAVS = {
+    ProcModule.RX: re.compile(fr'^{META_FAV_RX}$'),
+    ProcModule.RN: re.compile(fr'^{META_FAV_RN}$'),
+    ProcModule.RS: re.compile(fr'^{META_FAV_RS}$'),
+    ProcModule.RP: re.compile(fr'^{META_FAV_RP}$'),
+    ProcModule.EN: re.compile(fr'^{META_FAV_EN}$'),
+    ProcModule.XB: re.compile(fr'^{META_FAV_XB}$'),
+    ProcModule.BB: re.compile(fr'^{META_FAV_BB}$'),
+    ProcModule.DB: re.compile(fr'^{META_FAV_DB}$'),
+}
+RE_POOLS = {
+    ProcModule.RX: re.compile(fr'^{META_POOL_RX}$'),
+    ProcModule.RN: re.compile(fr'^{META_POOL_RN}$'),
+    ProcModule.RS: re.compile(fr'^{META_POOL_RS}$'),
+    ProcModule.RP: re.compile(fr'^{META_POOL_RP}$'),
+    ProcModule.EN: re.compile(fr'^{META_POOL_EN}$'),
+    ProcModule.XB: re.compile(fr'^{META_POOL_XB}$'),
+    ProcModule.BB: re.compile(fr'^{META_POOL_BB}$'),
+    ProcModule.DB: re.compile(fr'^{META_POOL_DB}$'),
+}
+RE_ORGRS_FULL = {
+    ProcModule.RX: re.compile(fr'^\((?:{RE_ORGR_PART_RX})(?:~{RE_ORGR_PART_RX})+?\)$'),
+    ProcModule.RN: re.compile(fr'^\((?:{RE_ORGR_PART_RN})(?:~{RE_ORGR_PART_RN})+?\)$'),
+    ProcModule.RS: re.compile(fr'^\((?:{RE_ORGR_PART_RS})(?:~{RE_ORGR_PART_RS})+?\)$'),
+    ProcModule.RP: re.compile(fr'^\((?:{RE_ORGR_PART_RP})(?:~{RE_ORGR_PART_RP})+?\)$'),
+    ProcModule.EN: re.compile(fr'^\((?:{RE_ORGR_PART_EN})(?:~{RE_ORGR_PART_EN})+?\)$'),
+    ProcModule.XB: re.compile(fr'^\((?:{RE_ORGR_PART_XB})(?:~{RE_ORGR_PART_XB})+?\)$'),
+    ProcModule.BB: re.compile(fr'^\((?:{RE_ORGR_PART_BB})(?:~{RE_ORGR_PART_BB})+?\)$'),
+    ProcModule.DB: re.compile(fr'^\((?:{RE_ORGR_PART_DB})(?:~{RE_ORGR_PART_DB})+?\)$'),
+}
+RE_ORGRS_FULL_S = {
+    ProcModule.RX: re.compile(fr'^\( (?:{RE_ORGR_PART_RX})(?: ~ {RE_ORGR_PART_RX})+? \)$'),
+    ProcModule.RN: re.compile(fr'^\( (?:{RE_ORGR_PART_RN})(?: ~ {RE_ORGR_PART_RN})+? \)$'),
+    ProcModule.RS: re.compile(fr'^\( (?:{RE_ORGR_PART_RS})(?: ~ {RE_ORGR_PART_RS})+? \)$'),
+    ProcModule.RP: re.compile(fr'^\( (?:{RE_ORGR_PART_RP})(?: ~ {RE_ORGR_PART_RP})+? \)$'),
+    ProcModule.EN: re.compile(fr'^\( (?:{RE_ORGR_PART_EN})(?: ~ {RE_ORGR_PART_EN})+? \)$'),
+    ProcModule.XB: re.compile(fr'^\( (?:{RE_ORGR_PART_XB})(?: ~ {RE_ORGR_PART_XB})+? \)$'),
+    ProcModule.BB: re.compile(fr'^\( (?:{RE_ORGR_PART_BB})(?: ~ {RE_ORGR_PART_BB})+? \)$'),
+    ProcModule.DB: re.compile(fr'^\( (?:{RE_ORGR_PART_DB})(?: ~ {RE_ORGR_PART_DB})+? \)$'),
+}
+RE_ANDGR_FULL = {
+    ProcModule.RX: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.RN: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.RS: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.RP: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.EN: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.XB: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.BB: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+    ProcModule.DB: re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$'),
+}
+RE_NEGATIVE_META = re.compile(r'^-[^:]+:.+?$')
+
+
+def re_by_type(re_dict: dict[int, re.Pattern[str]]) -> re.Pattern:
+    return re_dict[ProcModule.CUR_PROC_MODULE]
+
+
+def re_plain() -> re.Pattern:
+    return re_by_type(RE_PLAINS)
+
+
+def re_symbols() -> re.Pattern:
+    return re_by_type(RE_SYMBOLS)
+
+
+def re_meta() -> re.Pattern:
+    return re_by_type(RE_METAS)
+
+
+def re_sort() -> re.Pattern:
+    return re_by_type(RE_SORTS)
+
+
+def is_module_sort_tag(tag: str) -> bool:
+    """The tag matches the current module's registered sort syntax (False for a module without one)"""
+    rex = RE_SORTS.get(ProcModule.value())
+    return bool(rex is not None and rex.pattern not in ('^$', '') and rex.fullmatch(tag))
+
+
+def re_fav() -> re.Pattern:
+    return re_by_type(RE_FAVS)
+
+
+def re_pool() -> re.Pattern:
+    return re_by_type(RE_POOLS)
+
+
+def re_orgr_full() -> re.Pattern:
+    return re_by_type(RE_ORGRS_FULL)
+
+
+def re_orgr_full_s() -> re.Pattern:
+    return re_by_type(RE_ORGRS_FULL_S)
+
+
+def re_andgr() -> re.Pattern:
+    return re_by_type(RE_ANDGR_FULL)
+
+
+def split_or_group(gr: str) -> str:
+    assert re_orgr_full().fullmatch(gr)
+    orgr_parts = gr[1:-1].split('~')
+    for part in orgr_parts:
+        assert not RE_NEGATIVE_META.fullmatch(part)  # negative meta tags
+    return f'( {" ~ ".join(part for part in orgr_parts)} )'
+
+
+URL_ESCAPES = (('%', '%25'), ('+', '%2b'), ('&', '%26'), ('#', '%23'), (';', '%3b'))
+'''task strings are inserted into urls as is: characters with a meaning in a query string are escaped ('%' first).
+Logical tags (local filters, tag lists) are recovered with urllib.parse.unquote()'''
+
+
+def normalize_tag(tag: str) -> str:
+    if tag.startswith('-(') and tag.endswith(')'):
+        return tag  # negative group: a local-only pattern, never sent to the website
+    for raw, escaped in URL_ESCAPES:
+        tag = tag.replace(raw, escaped)
+    return tag.replace(' ', '+')
+
+
+class TagsError(AssertionError):
+    """Invalid query (an AssertionError, as the original assert was): the message says why when the parser knows"""
+
+
+def convert_taglist(taglist: Sequence[str]) -> list[str]:
+    parse_suc, parsed = parse_tags(' '.join(taglist))
+    if not parse_suc:
+        raise TagsError(f'Invalid tags: {taglist!s}{f" ({why})" if (why := parse_error()) else ""}')
+    return [normalize_tag(tag) for tag in parsed]
+
+
+def ret_tags(suc: bool, tag_list: Sequence[str]) -> tuple[bool, Sequence[str]]:
+    return suc, tag_list
+
+
+def fail(why: str | None = None) -> tuple[bool, Sequence[str]]:
+    if why is not None:
+        parse_tags.last_error = why
+    return ret_tags(False, DEFAULT_TAGS)
+
+
+def parse_error() -> str:
+    """Why the last parse_tags() failed, when known ('' otherwise)"""
+    return getattr(parse_tags, 'last_error', '')
+
+
+def parse_tags(tags: str) -> tuple[bool, Sequence[str]]:
+    parse_tags.last_tags = getattr(parse_tags, 'last_tags', '')
+    parse_tags.last_fulltags = getattr(parse_tags, 'last_fulltags', tuple[str, ...]())
+
+    if '  ' in tags:
+        tags = re_space_mult.sub(' ', tags)
+    tags = tags.strip()
+
+    # the result depends on the module too (its syntax, its search kinds): the cache is per module
+    if parse_tags.last_tags == tags and getattr(parse_tags, 'last_module', None) == ProcModule.value():
+        if parse_tags.last_fulltags:
+            return ret_tags(True, parse_tags.last_fulltags)
+        return fail()
+
+    parse_tags.last_tags = tags
+    parse_tags.last_module = ProcModule.value()
+    parse_tags.last_fulltags = None
+    parse_tags.last_error = ''
+
+    if not tags:
+        return fail()
+
+    fulltags: list[str] = []
+    sort_tags_count = 0
+    custom_tags_count = 0
+    listing_tags: list[str] = []
+    '''tags of a listing kind (the token selects another site listing, manifest 'search')'''
+    or_groups = 0
+    tag: str
+    for tag in unique_ordered(tags.split(' ')):
+        tag_escaped = startsendswith(tag, '%')
+        if not tag_escaped and len(tag) > 3 and tag.startswith('-%') and tag.endswith('%') and kind_of(tag[2:-1]) is not None:
+            # '-%user:a:b%' is no escape: the core would send it as one literal tag (and miss a listing kind's rules)
+            return fail(f'\'{tag}\': write the \'-\' inside the escape: \'%-{tag[2:-1]}%\'')
+        kind = kind_of(tag[1:-1] if tag_escaped else tag)
+        if kind is not None and kind.listing:
+            if tag.lstrip('%').startswith('-'):
+                return fail(f'\'{kind.token}\' selects a site listing: it cannot be negated')
+            listing_tags.append(tag)
+        if tag_escaped:
+            pass
+        elif kind is not None and not kind.use:
+            # a kind of the module (manifest 'search'): its value regex instead of the core's tag characters ('user:Some.Name')
+            if kind_value_ok(tag) is None:
+                return fail(f'\'{tag}\': not a valid value for \'{kind.token}\'')
+            fulltags.append(tag)
+            continue
+        elif tag.startswith('(') and re_orgr_full().fullmatch(tag):
+            # members are tags too: a listing (or a kind in the site's order) cannot be one of the alternatives
+            for part in tag[1:-1].split('~'):
+                part_escaped = startsendswith(part, '%')
+                if (pk := kind_of(part[1:-1] if part_escaped else part)) is None:
+                    continue
+                member = part.strip('%').lstrip('-')
+                if pk.listing:
+                    return fail(f'{member} is a site listing: \'or\' groups cannot be used with it')
+                if pk.order == 'site':
+                    return fail(f'{member} lists posts in the site\'s order: \'or\' groups cannot be used with it')
+                if not pk.use and not part_escaped and kind_value_ok(part) is None:
+                    return fail(f'\'{part}\': not a valid value for \'{pk.token}\'')
+            or_groups += 1
+            try:
+                tag = split_or_group(tag)
+            except Exception:
+                return fail()
+        elif re_favorited_by_tag.fullmatch(tag):
+            if re_fav().fullmatch(tag):
+                custom_tags_count += 1
+            else:
+                return fail()
+        elif re_pool_tag.fullmatch(tag):
+            if re_pool().fullmatch(tag):
+                custom_tags_count += 1
+            else:
+                return fail()
+        elif re_sort().fullmatch(tag):
+            sort_tags_count += 1
+        if not (re_orgr_full_s().fullmatch(tag)
+                or re_andgr().fullmatch(tag)
+                or re_meta().fullmatch(tag)
+                or re_symbols().fullmatch(tag)
+                or re_plain().fullmatch(tag)
+                or tag_escaped):
+            return fail()
+        fulltags.append(tag[1:-1] if tag_escaped else tag)
+
+    if len(fulltags) <= sort_tags_count > 0 or custom_tags_count > 1:
+        return fail()
+    if listing_tags:
+        if len(listing_tags) > 1:
+            return fail(f'one site listing per search: {" ".join(listing_tags)}')
+        if or_groups:
+            return fail(f'{listing_tags[0]} is a site listing: \'or\' groups cannot be used with it')
+        if custom_tags_count:
+            return fail(f'{listing_tags[0]} is a site listing: favorites / pools cannot be used with it')
+
+    parse_tags.last_fulltags = tuple(fulltags)
+
+    return ret_tags(True, parse_tags.last_fulltags)
+
+
+def reset_last_tags() -> None:
+    parse_tags.last_tags = ''
+
+
+def register_module_syntax(proc_id: int, meta_count: str, sort: str, fav: str, pool: str) -> None:
+    """Registers tag syntax of a module provided by an extension (modules known to the core keep their predefined syntax)"""
+    if proc_id in RE_PLAINS:
+        return
+    orgr_part = fr'{TAG_CHAR}+?(?:{meta_count})?'
+    RE_PLAINS[proc_id] = re.compile(fr'^-?{TAG_CHAR}+?$')
+    RE_SYMBOLS[proc_id] = re.compile(fr'^-?{SYMBOL_CHAR}+?$')
+    RE_METAS[proc_id] = re.compile(fr'^{META_CHAR}+?{meta_count}$')
+    RE_SORTS[proc_id] = re.compile(fr'^{sort}$')
+    RE_FAVS[proc_id] = re.compile(fr'^{fav}$')
+    RE_POOLS[proc_id] = re.compile(fr'^{pool}$')
+    RE_ORGRS_FULL[proc_id] = re.compile(fr'^\((?:{orgr_part})(?:~{orgr_part})+?\)$')
+    RE_ORGRS_FULL_S[proc_id] = re.compile(fr'^\( (?:{orgr_part})(?: ~ {orgr_part})+? \)$')
+    RE_ANDGR_FULL[proc_id] = re.compile(fr'^-\((?:{RE_ANDGR_PART_U})(?:,{RE_ANDGR_PART_U})+?\)$')
+
+#
+#
+#########################################
