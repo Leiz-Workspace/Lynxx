@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import mimetypes
 import os
 import posixpath
@@ -83,7 +84,7 @@ def assemble_epub(image_paths: Iterable[str | Path], output: str | Path, title: 
                 archive.write(page, f"OEBPS/images/{item_id}{page.suffix.lower()}")
                 manifest.append(f"<item id='{item_id}' href='images/{item_id}{page.suffix.lower()}' media-type='{media_type}'/>")
                 spine.append(f"<itemref idref='{item_id}'/>")
-            opf = f"<?xml version='1.0' encoding='utf-8'?><package xmlns='http://www.idpf.org/2007/opf' version='3.0' unique-identifier='book-id'><metadata xmlns:dc='http://purl.org/dc/elements/1.1/'><dc:identifier id='book-id'>lynxx:{hashlib.sha256(title.encode()).hexdigest()[:16]}</dc:identifier><dc:title>{title}</dc:title><dc:language>und</dc:language></metadata><manifest>{''.join(manifest)}</manifest><spine>{''.join(spine)}</spine></package>"
+            opf = f"<?xml version='1.0' encoding='utf-8'?><package xmlns='http://www.idpf.org/2007/opf' version='3.0' unique-identifier='book-id'><metadata xmlns:dc='http://purl.org/dc/elements/1.1/'><dc:identifier id='book-id'>lynxx:{hashlib.sha256(title.encode()).hexdigest()[:16]}</dc:identifier><dc:title>{html.escape(title)}</dc:title><dc:language>und</dc:language></metadata><manifest>{''.join(manifest)}</manifest><spine>{''.join(spine)}</spine></package>"
             archive.writestr("OEBPS/content.opf", opf)
         os.replace(temporary, destination)
     finally:
