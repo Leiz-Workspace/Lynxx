@@ -9,7 +9,7 @@
   // UI tests can slow down single calls to provoke out-of-order answers: window.__mockLatency = (method, params) => ms
   const latency = (method, p) => { try { return Number(window.__mockLatency?.(method, p)) || 0; } catch { return 0; } };
   const ICONS = [
-    { id: 'full-mask-cyan', name: 'Full mask · Orange' }, { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Orange' },
+    { id: 'full-mask-cyan', name: 'Full mask · Cyan' }, { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' },
     { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' }, { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' },
   ];
   const mockTagRuns = new Map(); // module -> { count, message } of a running tag list update (tags.update below)
