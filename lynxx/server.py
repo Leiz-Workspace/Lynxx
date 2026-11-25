@@ -38,6 +38,7 @@ from .gender import decide, infer_from_tags, rules_for_module  # noqa: E402
 from .help import APP_ADDRESS  # noqa: E402
 from .library import LibraryDB  # noqa: E402
 from .library.importer import import_document  # noqa: E402
+from .library.epub_reader import epub_image_pages  # noqa: E402
 from .logger import Logger  # noqa: E402
 from .modspec import re_abbr, re_kind_token  # noqa: E402
 from .module import ProcModule  # noqa: E402
@@ -253,7 +254,19 @@ def m_library_artifacts(p: dict) -> list[dict]:
         db.close()
 
 
-def m_reader_progress_get(p: dict) -> dict | None:
+def m_reader_epub_pages(p: dict) -> list[dict[str, str | int]]:
+    source = p.get('path')
+    if not isinstance(source, str) or not source:
+        raise RpcError(-32602, 'path is required')
+    candidate = pathlib.Path(source).expanduser().resolve()
+    managed_root = (data_dir() / LIBRARY_ROOT_NAME).resolve()
+    try:
+        candidate.relative_to(managed_root)
+    except ValueError as err:
+        raise RpcError(-32602, 'reader path is outside the managed library') from err
+    return epub_image_pages(candidate)
+
+
     chapter_id = p.get('chapterId')
     if not isinstance(chapter_id, str) or not chapter_id:
         raise RpcError(-32602, 'chapterId is required')
@@ -1030,6 +1043,7 @@ METHODS: dict[str, Callable[[dict], Any]] = {
     'library.artifacts': m_library_artifacts,
     'reader.progress.get': m_reader_progress_get,
     'reader.progress.set': m_reader_progress_set,
+    'reader.epub.pages': m_reader_epub_pages,
 }
 
 

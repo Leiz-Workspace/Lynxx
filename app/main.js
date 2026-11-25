@@ -2687,6 +2687,7 @@ function registerIpc() {
     approvedPaths.add(imported.path);
     return { ok: true, ...imported };
   });
+  handle('reader:epubPages', (_e, p) => sidecar.call('reader.epub.pages', { path: String(p || '') }, 120000));
   handle('reader:open', (_e, p) => {
     const target = String(p || '');
     if (!approvedPaths.has(target)) return { ok: false, error: 'file phải được chọn bằng hộp thoại Lynxx' };

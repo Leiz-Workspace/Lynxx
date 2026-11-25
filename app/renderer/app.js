@@ -282,13 +282,35 @@ $('#reader-open')?.addEventListener('click', async () => {
   if (!result?.ok) { toast(result?.error || 'Không mở được tài liệu', 'err'); return; }
   readerUrl = result.url;
   const frame = $('#reader-frame');
-  frame.src = readerUrl;
-  frame.hidden = false;
+  const book = $('#reader-book');
+  const pages = $('#reader-pages');
+  pages.replaceChildren();
+  frame.hidden = result.type !== 'pdf';
+  book.hidden = result.type !== 'epub';
+  if (result.type === 'epub') {
+    try {
+      const items = await L.reader.epubPages(imported.path);
+      items.forEach((item) => {
+        const image = document.createElement('img');
+        image.src = item.src;
+        image.alt = `Trang ${item.number}`;
+        image.loading = 'lazy';
+        pages.append(image);
+      });
+    } catch (err) {
+      toast(`Không đọc được EPUB: ${errMsg(err)}`, 'err');
+      return;
+    }
+  } else {
+    frame.src = readerUrl;
+  }
   $('#reader-empty').hidden = true;
+  pages.classList.toggle('reader-horizontal', $('#reader-mode').value === 'horizontal');
   frame.classList.toggle('reader-horizontal', $('#reader-mode').value === 'horizontal');
 });
 $('#reader-mode')?.addEventListener('change', (event) => {
   $('#reader-frame')?.classList.toggle('reader-horizontal', event.target.value === 'horizontal');
+  $('#reader-pages')?.classList.toggle('reader-horizontal', event.target.value === 'horizontal');
 });
 
 // ---------------- appearance ----------------

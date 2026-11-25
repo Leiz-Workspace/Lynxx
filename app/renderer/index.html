@@ -178,7 +178,10 @@
         <div class="page-head"><h1>Đọc truyện</h1><span class="row"><select id="reader-mode" title="Chế độ đọc"><option value="vertical">Cuộn dọc</option><option value="horizontal">Trượt ngang</option></select><button class="btn sm" id="reader-open">Mở PDF/EPUB…</button></span></div>
         <div class="reader-shell glass" id="reader-shell">
           <div class="reader-empty" id="reader-empty">Chọn một file PDF hoặc EPUB để bắt đầu đọc. File sẽ được kiểm tra và giữ trong thư viện Lynxx.</div>
-          <iframe id="reader-frame" title="Trình đọc tài liệu" hidden sandbox="allow-same-origin"></iframe>
+          <div class="reader-book" id="reader-book" hidden>
+            <div class="reader-page-strip" id="reader-pages"></div>
+            <iframe id="reader-frame" title="Trình đọc tài liệu" hidden sandbox="allow-same-origin"></iframe>
+          </div>
         </div>
       </section>
 
