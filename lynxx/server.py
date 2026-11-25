@@ -36,6 +36,8 @@ from .defines import DATE_MIN_DEFAULT, PREVIEW_PAGE_SIZE_DEFAULT, ModuleCaps, Th
 from .extensions import ENV_CATALOG_AUTOLOAD, SOURCE_USER, Extensions, data_dir  # noqa: E402
 from .gender import decide, infer_from_tags, rules_for_module  # noqa: E402
 from .help import APP_ADDRESS  # noqa: E402
+from .library import LibraryDB  # noqa: E402
+from .library.importer import import_document  # noqa: E402
 from .logger import Logger  # noqa: E402
 from .modspec import re_abbr, re_kind_token  # noqa: E402
 from .module import ProcModule  # noqa: E402
@@ -201,9 +203,63 @@ def _with_downloader(abbr: str, tags: str, extra_args: list[str], fn: Callable[[
                 notify('log', {'text': '\n'.join(log), 'scope': abbr})
 
 
-# ----- methods -----
+LIBRARY_DB_NAME = 'index/library.sqlite'
+LIBRARY_ROOT_NAME = 'library'
 
-def m_app_info(_: dict) -> dict:
+
+def library_db() -> LibraryDB:
+    return LibraryDB(data_dir() / LIBRARY_DB_NAME)
+
+
+def m_library_import(p: dict) -> dict:
+    source = p.get('source')
+    if not isinstance(source, str) or not source:
+        raise RpcError(-32602, 'source is required')
+    title = p.get('title', '')
+    if not isinstance(title, str):
+        raise RpcError(-32602, 'title must be a string')
+    db = library_db()
+    try:
+        return import_document(source, data_dir() / LIBRARY_ROOT_NAME, db, title)
+    finally:
+        db.close()
+
+
+def m_library_artifacts(p: dict) -> list[dict]:
+    chapter_id = p.get('chapterId')
+    if not isinstance(chapter_id, str) or not chapter_id:
+        raise RpcError(-32602, 'chapterId is required')
+    db = library_db()
+    try:
+        return db.chapter_artifacts(chapter_id)
+    finally:
+        db.close()
+
+
+def m_reader_progress_get(p: dict) -> dict | None:
+    chapter_id = p.get('chapterId')
+    if not isinstance(chapter_id, str) or not chapter_id:
+        raise RpcError(-32602, 'chapterId is required')
+    db = library_db()
+    try:
+        return db.reader_progress(chapter_id)
+    finally:
+        db.close()
+
+
+def m_reader_progress_set(p: dict) -> dict:
+    chapter_id = p.get('chapterId')
+    if not isinstance(chapter_id, str) or not chapter_id:
+        raise RpcError(-32602, 'chapterId is required')
+    db = library_db()
+    try:
+        db.save_reader_progress(chapter_id, int(p.get('page', 0)), float(p.get('scrollOffset', 0)),
+                                str(p.get('mode', 'vertical')), float(p.get('zoom', 1)), str(p.get('updatedAt', datetime.datetime.now(datetime.timezone.utc).isoformat())))
+        return {'ok': True}
+    finally:
+        db.close()
+
+
     return {
         'name': APP_NAME, 'version': APP_VERSION, 'protocol': PROTOCOL_VERSION, 'upstream': APP_ADDRESS,
         'python': platform.python_version(), 'dataDir': data_dir().as_posix(),
@@ -951,6 +1007,10 @@ METHODS: dict[str, Callable[[dict], Any]] = {
     'gender.modelLoad': m_gender_model_load,
     'gender.modelUnload': m_gender_model_unload,
     'index.stats': m_index_stats,
+    'library.import': m_library_import,
+    'library.artifacts': m_library_artifacts,
+    'reader.progress.get': m_reader_progress_get,
+    'reader.progress.set': m_reader_progress_set,
 }
 
 

@@ -95,7 +95,23 @@ class LibraryDB:
             (chapter_id, collection_id, remote_id, title, chapter_number, content_kind, state, created_at, updated_at),
         )
 
-    def record_policy(self, source_id: str, url_scope: str, operation: str, decision: str, reason: str, version: str, checked_at: str) -> None:
+    def create_artifact(self, artifact_id: str, chapter_id: str, kind: str, path: str, mime_type: str, size: int, sha256: str, state: str, created_at: str) -> None:
+        self.connection.execute(
+            "INSERT INTO artifacts(id,chapter_id,kind,path,mime_type,size,sha256,state,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+            (artifact_id, chapter_id, kind, path, mime_type, size, sha256, state, created_at),
+        )
+
+    def chapter_artifacts(self, chapter_id: str) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.connection.execute(
+            "SELECT * FROM artifacts WHERE chapter_id = ? ORDER BY created_at, id", (chapter_id,)
+        )]
+
+    def create_page(self, page_id: str, chapter_id: str, page_number: int, local_path: str, mime_type: str, sha256: str, byte_size: int, state: str) -> None:
+        self.connection.execute(
+            "INSERT INTO pages(id,chapter_id,page_number,local_path,mime_type,sha256,byte_size,state) VALUES(?,?,?,?,?,?,?,?)",
+            (page_id, chapter_id, page_number, local_path, mime_type, sha256, byte_size, state),
+        )
+
         self.connection.execute(
             "INSERT INTO policy_decisions(source_id,url_scope,operation,decision,reason,policy_version,checked_at) VALUES(?,?,?,?,?,?,?)",
             (source_id, url_scope, operation, decision, reason, version, checked_at),
