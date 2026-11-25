@@ -276,7 +276,9 @@ let readerUrl = '';
 $('#reader-open')?.addEventListener('click', async () => {
   const file = await L.dialogs.document();
   if (!file) return;
-  const result = await L.reader.open(file);
+  const imported = await L.reader.import(file, file.split(/[\\/]/).pop().replace(/\.[^.]+$/, ''));
+  if (!imported?.ok) { toast(imported?.error || 'Không nhập được tài liệu', 'err'); return; }
+  const result = await L.reader.open(imported.path);
   if (!result?.ok) { toast(result?.error || 'Không mở được tài liệu', 'err'); return; }
   readerUrl = result.url;
   const frame = $('#reader-frame');

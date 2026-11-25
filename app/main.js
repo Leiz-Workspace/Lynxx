@@ -2678,6 +2678,15 @@ function registerIpc() {
   handle('shell:external', (_e, url) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : false));
   // library page: a downloaded media file is opened with the default app; anything else (an executable, a .desktop file a
   // website could have named) is refused. 'reveal' only shows the file in its folder
+  handle('reader:import', async (_e, p, title) => {
+    const target = String(p || '');
+    if (!approvedPaths.has(target)) return { ok: false, error: 'file phải được chọn bằng hộp thoại Lynxx' };
+    const ext = path.extname(target).slice(1).toLowerCase();
+    if (!new Set(['pdf', 'epub']).has(ext)) return { ok: false, error: 'chỉ hỗ trợ PDF và EPUB' };
+    const imported = await sidecar.call('library.import', { source: target, title: String(title || '') }, 120000);
+    approvedPaths.add(imported.path);
+    return { ok: true, ...imported };
+  });
   handle('reader:open', (_e, p) => {
     const target = String(p || '');
     if (!approvedPaths.has(target)) return { ok: false, error: 'file phải được chọn bằng hộp thoại Lynxx' };

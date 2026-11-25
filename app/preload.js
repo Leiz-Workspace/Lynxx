@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld('lynxx', {
   },
   reader: {
     open: (file) => invoke('reader:open', file),
+    import: (file, title) => invoke('reader:import', file, title),
   },
   library: {
     // files of the download index: open with the default app (media extensions only) or show in the file manager
