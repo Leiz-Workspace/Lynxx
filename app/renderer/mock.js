@@ -9,14 +9,14 @@
   // UI tests can slow down single calls to provoke out-of-order answers: window.__mockLatency = (method, params) => ms
   const latency = (method, p) => { try { return Number(window.__mockLatency?.(method, p)) || 0; } catch { return 0; } };
   const ICONS = [
-    { id: 'full-mask-orange', name: 'Full mask · Orange' }, { id: 'exposed-jaw-orange', name: 'Exposed jaw · Orange' },
-    { id: 'full-mask-monochrome', name: 'Full mask · Mono' }, { id: 'exposed-jaw-monochrome', name: 'Exposed jaw · Mono' },
+    { id: 'full-mask-cyan', name: 'Full mask · Orange' }, { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Orange' },
+    { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' }, { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' },
   ];
   const mockTagRuns = new Map(); // module -> { count, message } of a running tag list update (tags.update below)
   const mockSchedule = { ok: true, kind: 'crontab', enabled: false, installed: false, frequency: 'weekly', time: '04:31',
     modules: [{ module: 'db', name: 'Danbooru' }, { module: 'fb', name: 'Fakebooru' }], log: '~/.config/Lynxx/logs/tags-schedule.log', lastRun: 0 };
   const settings = {
-    appearance: { theme: 'ember', icon: 'full-mask-orange', background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 } },
+    appearance: { theme: 'ember', icon: 'full-mask-cyan', background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 } },
     search: { module: 'db', autocomplete: true, safePreview: false, history: [], saved: [], tagLimits: {}, filtersOpen: true },
     download: { path: '/home/user/Downloads/Lynxx', threads: 4, images: true, videos: true, videoFormat: '', lowRes: false, maxVideoHeight: 0, prefix: true,
       gender: { select: [], conf: 'medium', strict: false, op: 'keep', mode: 'tags', verifyMedia: false },

@@ -38,10 +38,10 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const CORE_NAME = process.platform === 'win32' ? 'lynxx-core.exe' : 'lynxx-core';
 const ICON_DIR = path.join(__dirname, 'assets', 'icons');
 const ICONS = [
-  { id: 'full-mask-orange', name: 'Full mask · Orange' },
-  { id: 'exposed-jaw-orange', name: 'Exposed jaw · Orange' },
-  { id: 'full-mask-monochrome', name: 'Full mask · Mono' },
-  { id: 'exposed-jaw-monochrome', name: 'Exposed jaw · Mono' },
+  { id: 'full-mask-cyan', name: 'Full mask · Cyan' },
+  { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' },
+  { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' },
+  { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' },
 ];
 const THEMES = ['ember', 'graphite', 'paper', 'oled'];
 const THUMB_CACHE_MAX = 512 * 1024 * 1024;
@@ -64,7 +64,7 @@ const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
   appearance: {
     theme: 'ember',
-    icon: 'full-mask-orange',
+    icon: 'full-mask-cyan',
     background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 },
   },
   search: {
@@ -2600,6 +2600,14 @@ function registerIpc() {
     approvedPaths.add(r.filePaths[0]);
     return r.filePaths[0];
   });
+  handle('dialog:document', async () => {
+    const r = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'], filters: [{ name: 'Documents', extensions: ['pdf', 'epub'] }],
+    });
+    if (r.canceled) return '';
+    approvedPaths.add(r.filePaths[0]);
+    return r.filePaths[0];
+  });
   handle('dialog:zip', async () => {
     const r = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: [{ name: 'Lynxx extension', extensions: ['zip'] }] });
     if (r.canceled) return '';
@@ -2670,6 +2678,16 @@ function registerIpc() {
   handle('shell:external', (_e, url) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : false));
   // library page: a downloaded media file is opened with the default app; anything else (an executable, a .desktop file a
   // website could have named) is refused. 'reveal' only shows the file in its folder
+  handle('reader:open', (_e, p) => {
+    const target = String(p || '');
+    if (!approvedPaths.has(target)) return { ok: false, error: 'file phải được chọn bằng hộp thoại Lynxx' };
+    const ext = path.extname(target).slice(1).toLowerCase();
+    if (!new Set(['pdf', 'epub']).has(ext)) return { ok: false, error: 'chỉ hỗ trợ PDF và EPUB' };
+    try {
+      if (!fs.statSync(target).isFile()) return { ok: false, error: 'file không còn trên đĩa' };
+    } catch { return { ok: false, error: 'không thể đọc file' }; }
+    return { ok: true, url: pathToFileURL(target).href, type: ext };
+  });
   handle('library:open', (_e, p) => {
     const target = String(p || '');
     const ext = path.extname(target).slice(1).toLowerCase();
@@ -3052,19 +3070,19 @@ async function runSelfTest(dir) {
       const setIcon = (id) => js(`window.lynxx.settings.set({ appearance: { icon: '${id}' } }).then((r) => r.iconSync)`);
       const r = { home: os.homedir() };
       try { fs.unlinkSync(desktopEntryPath()); } catch { /* none */ }
-      r.missing = await setIcon('exposed-jaw-orange');
+      r.missing = await setIcon('exposed-jaw-cyan');
       r.install = await js('window.lynxx.app.installLauncher()');
       const firstIcon = iconLine();
-      r.changed = await setIcon('full-mask-monochrome');
+      r.changed = await setIcon('full-mask-monochrome-1024');
       const secondIcon = iconLine();
-      r.unchanged = await setIcon('full-mask-monochrome');
+      r.unchanged = await setIcon('full-mask-monochrome-1024');
       Object.assign(r, {
         firstIcon: path.basename(firstIcon), secondIcon: path.basename(secondIcon), iconFiles: fs.readdirSync(outsideIconDir()),
         oldRemoved: !fs.existsSync(firstIcon), newExists: fs.existsSync(secondIcon), marker: read().includes(LAUNCHER_MARKER),
         wmClass: /^StartupWMClass=lynxx$/m.test(read()),
       });
       fs.writeFileSync(desktopEntryPath(), '[Desktop Entry]\nName=Other\nIcon=x\n');
-      r.foreign = await setIcon('exposed-jaw-orange');
+      r.foreign = await setIcon('exposed-jaw-cyan');
       r.foreignUntouched = read().includes('Name=Other');
       fs.unlinkSync(desktopEntryPath());
       await setIcon(DEFAULT_SETTINGS.appearance.icon);
@@ -3274,7 +3292,7 @@ async function selfTestContract(js, quick) {
   try {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lynxx-selftest-lib-'));
     const img = path.join(dir, 'db_1 test.png');
-    fs.copyFileSync(path.join(__dirname, 'assets', 'icons', 'full-mask-orange-64.png'), img);
+    fs.copyFileSync(path.join(__dirname, 'assets', 'icons', 'full-mask-cyan-64.png'), img);
     const launcher = path.join(dir, 'evil.desktop');
     fs.writeFileSync(launcher, '[Desktop Entry]\n');
     const loaded = await js(`new Promise((resolve) => { const i = new Image(); i.onload = () => resolve(i.naturalWidth); i.onerror = () => resolve(0);
@@ -4491,7 +4509,7 @@ async function selfTestLibraryTrash(js) {
   const files = ['db_901.png', 'db_902.png', 'db_903.png'].map((n) => path.join(dir, n));
   try {
     settings.download.path = dir; // the download folder: its root takes '.lynxx-trash' when the data dir is on another drive
-    const icon = path.join(__dirname, 'assets', 'icons', 'full-mask-orange-64.png');
+    const icon = path.join(__dirname, 'assets', 'icons', 'full-mask-cyan-64.png');
     files.forEach((f) => fs.copyFileSync(icon, f));
     const gone = path.join(dir, 'db_904.png'); // a row whose file is not on disk
     const stranger = path.join(dir, 'stranger.png'); // a file the index does not know
@@ -4672,7 +4690,7 @@ async function selfTestTrashUi(js, shot) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lynxx-selftest-trashui-'));
   const files = Array.from({ length: 4 }, (_, i) => path.join(dir, `db_${951 + i}.png`));
   try {
-    const icon = path.join(__dirname, 'assets', 'icons', 'full-mask-orange-64.png');
+    const icon = path.join(__dirname, 'assets', 'icons', 'full-mask-cyan-64.png');
     files.forEach((f) => fs.copyFileSync(icon, f));
     selfTestSeedIndex(files.map((p, i) => ({ module: 'db', id: String(951 + i), path: p, tags: 'selftest_trash_ui', size: 1500 })));
     await sidecar.call('index.trash', { paths: files.slice(2), roots: [] }); // two files already in the trash

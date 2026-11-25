@@ -271,6 +271,24 @@ function showPage(name) {
 }
 $$('#nav button').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
 
+// ---------------- local PDF/EPUB reader ----------------
+let readerUrl = '';
+$('#reader-open')?.addEventListener('click', async () => {
+  const file = await L.dialogs.document();
+  if (!file) return;
+  const result = await L.reader.open(file);
+  if (!result?.ok) { toast(result?.error || 'Không mở được tài liệu', 'err'); return; }
+  readerUrl = result.url;
+  const frame = $('#reader-frame');
+  frame.src = readerUrl;
+  frame.hidden = false;
+  $('#reader-empty').hidden = true;
+  frame.classList.toggle('reader-horizontal', $('#reader-mode').value === 'horizontal');
+});
+$('#reader-mode')?.addEventListener('change', (event) => {
+  $('#reader-frame')?.classList.toggle('reader-horizontal', event.target.value === 'horizontal');
+});
+
 // ---------------- appearance ----------------
 function applyAppearance(a) {
   S.appearance = a;

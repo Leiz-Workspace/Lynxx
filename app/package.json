@@ -65,7 +65,7 @@
       ],
       "executableName": "lynxx",
       "syncDesktopName": true,
-      "icon": "assets/icons/full-mask-orange.png",
+      "icon": "assets/icons/full-mask-cyan.png",
       "category": "Network",
       "synopsis": "Booru downloader",
       "description": "Booru downloader",
@@ -82,7 +82,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/full-mask-orange.png"
+      "icon": "assets/icons/full-mask-cyan.png"
     },
     "nsis": {
       "oneClick": false,
@@ -109,7 +109,7 @@
         }
       ],
       "category": "public.app-category.utilities",
-      "icon": "assets/icons/full-mask-orange.png",
+      "icon": "assets/icons/full-mask-cyan.png",
       "identity": null
     },
     "deb": {

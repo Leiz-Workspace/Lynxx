@@ -442,7 +442,12 @@ body.safe .card:hover img { filter: none; }
 .gen-detail .table td:first-child { white-space: nowrap; }
 .gen-detail .table td { vertical-align: top; word-break: break-word; }
 
-/* ----- settings ----- */
+/* ----- Lynxx document reader ----- */
+.reader-shell { min-height: 72vh; padding: 18px; display: flex; justify-content: center; align-items: stretch; overflow: hidden; }
+.reader-empty { min-height: 60vh; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 32px; }
+#reader-frame { border: 0; width: 100%; min-height: 72vh; background: #111; border-radius: var(--radius-sm); }
+#reader-frame.reader-horizontal { min-height: 72vh; }
+
 /* panels packed in columns (masonry): a grid made every row as tall as its tallest panel and left holes under the short ones */
 .settings { column-width: 460px; column-gap: var(--gap); }
 .settings .panel { margin: 0 0 var(--gap); break-inside: avoid; display: block; }

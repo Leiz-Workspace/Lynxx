@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('lynxx', {
   dialogs: {
     folder: (current) => invoke('dialog:folder', current),
     image: () => invoke('dialog:image'),
+    document: () => invoke('dialog:document'),
     zip: () => invoke('dialog:zip'),
   },
   ext: {
@@ -74,6 +75,9 @@ contextBridge.exposeInMainWorld('lynxx', {
   saved: {
     // saved query schedule: every = hours (0 = off), from 'now' (only posts newer than today) or 'all'
     setAuto: (key, every, from) => invoke('saved:auto', key, every, from),
+  },
+  reader: {
+    open: (file) => invoke('reader:open', file),
   },
   library: {
     // files of the download index: open with the default app (media extensions only) or show in the file manager

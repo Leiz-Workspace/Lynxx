@@ -99,7 +99,7 @@ def build_exe() -> None:
         '--clean', '--log-level', 'DEBUG',
         '-F', '--noupx', '-c', '-y',
         '-n', APP_NAME,
-        '-i', './images/lynxx.ico',  # app/assets/icons/full-mask-orange.png at 16-256 px
+        '-i', './images/lynxx.ico',  # app/assets/icons/full-mask-cyan.png at 16-256 px
         *(itertools.chain.from_iterable(zip(('--exclude-module',) * len(MODULES_EXCLUDED), MODULES_EXCLUDED, strict=True))),
         '--collect-datas=fake_useragent',
         # builtin extensions: manifests are data, downloader modules are imported dynamically

@@ -365,7 +365,7 @@ class GenderPipelineTests(TestCase):
     @unittest.skipUnless(os.environ.get('LYNXX_GENDER_MODEL_DIR'), 'real model: set LYNXX_GENDER_MODEL_DIR to a folder with model.onnx')
     def test_real_model_on_the_app_icon(self) -> None:
         from lynxx.gender_model import GenderTagger, classify
-        icon = (pathlib.Path(__file__).resolve().parents[2] / 'app/assets/icons/full-mask-orange.png').read_bytes()
+        icon = (pathlib.Path(__file__).resolve().parents[2] / 'app/assets/icons/full-mask-cyan.png').read_bytes()
         probs = GenderTagger.get().predict(icon)
         self.assertGreater(probs.get('1girl', 0), 0.5, sorted(probs.items(), key=lambda x: -x[1])[:10])
         self.assertEqual('only_female', str(classify(probs).result.label))
