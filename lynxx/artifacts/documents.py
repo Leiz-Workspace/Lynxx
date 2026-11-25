@@ -1,4 +1,4 @@
-"""Safe PDF/EPUB format detection and artifact assembly helpers."""
+"""Small dependency-free artifact builders and EPUB inspection helpers."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ import html
 import mimetypes
 import os
 import posixpath
+import re
+import struct
 import zipfile
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -15,6 +17,7 @@ from typing import Iterable
 PDF_MAGIC = b"%PDF-"
 EPUB_MIMETYPE = b"application/epub+zip"
 MAX_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
+JPEG_EXTENSIONS = {".jpg", ".jpeg"}
 
 
 def sha256_file(path: str | Path) -> str:
@@ -26,7 +29,6 @@ def sha256_file(path: str | Path) -> str:
 
 
 def detect_document(path: str | Path) -> str:
-    """Return pdf/epub, rejecting files whose extension is not enough evidence."""
     candidate = Path(path)
     with candidate.open("rb") as stream:
         prefix = stream.read(5)
@@ -44,7 +46,6 @@ def detect_document(path: str | Path) -> str:
 
 
 def validate_epub_members(path: str | Path) -> None:
-    """Reject absolute paths, traversal and symlink entries before extraction."""
     with zipfile.ZipFile(path) as archive:
         total = 0
         for info in archive.infolist():
@@ -53,7 +54,6 @@ def validate_epub_members(path: str | Path) -> None:
                 raise ValueError(f"unsafe EPUB member: {info.filename}")
             if info.is_dir():
                 continue
-            # Unix mode 0o120000 denotes a symlink in a ZIP external attribute.
             if ((info.external_attr >> 16) & 0o170000) == 0o120000:
                 raise ValueError(f"symlink is not allowed in EPUB: {info.filename}")
             total += info.file_size
@@ -61,8 +61,79 @@ def validate_epub_members(path: str | Path) -> None:
                 raise ValueError("EPUB exceeds the artifact size limit")
 
 
+def _jpeg_size(path: Path) -> tuple[int, int]:
+    with path.open("rb") as stream:
+        if stream.read(2) != b"\xff\xd8":
+            raise ValueError("PDF assembly currently requires JPEG pages")
+        while True:
+            marker = stream.read(1)
+            if not marker:
+                raise ValueError("invalid JPEG")
+            if marker != b"\xff":
+                continue
+            marker = stream.read(1)
+            while marker == b"\xff":
+                marker = stream.read(1)
+            if marker in {b"\xd8", b"\xd9"}:
+                continue
+            length_data = stream.read(2)
+            if len(length_data) != 2:
+                raise ValueError("invalid JPEG segment")
+            length = struct.unpack(">H", length_data)[0]
+            if marker[0] in range(0xC0, 0xC4):
+                data = stream.read(length - 2)
+                if len(data) < 5:
+                    raise ValueError("invalid JPEG dimensions")
+                return struct.unpack(">HH", data[1:5])
+            stream.seek(length - 2, os.SEEK_CUR)
+
+
+def assemble_pdf(image_paths: Iterable[str | Path], output: str | Path, title: str = "") -> Path:
+    """Create a PDF whose pages embed local JPEGs; publish with an atomic rename."""
+    pages = [Path(page).expanduser().resolve(strict=True) for page in image_paths]
+    if not pages:
+        raise ValueError("at least one page is required")
+    if any(page.suffix.lower() not in JPEG_EXTENSIONS for page in pages):
+        raise ValueError("PDF assembly currently accepts JPEG pages only")
+    objects: list[bytes] = []
+    page_refs: list[int] = []
+    for page in pages:
+        width, height = _jpeg_size(page)
+        image = page.read_bytes()
+        image_ref = len(objects) + 1
+        objects.append(f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {len(image)} >>\nstream\n".encode() + image + b"\nendstream")
+        content = f"q\n{width} 0 0 {height} 0 0 cm\n/Im{image_ref} Do\nQ\n".encode()
+        content_ref = len(objects) + 1
+        objects.append(f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"endstream")
+        page_ref = len(objects) + 1
+        objects.append(f"<< /Type /Page /MediaBox [0 0 {width} {height}] /Resources << /XObject << /Im{image_ref} {image_ref} 0 R >> >> /Contents {content_ref} 0 R >>".encode())
+        page_refs.append(page_ref)
+    pages_ref = len(objects) + 1
+    objects.append(f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] >>".encode())
+    catalog_ref = len(objects) + 1
+    objects.append(f"<< /Type /Catalog /Pages {pages_ref} 0 R >>".encode())
+    output_path = Path(output).expanduser()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(dir=output_path.parent, prefix=f".{output_path.name}.", delete=False) as temp:
+        temporary = Path(temp.name)
+    try:
+        with temporary.open("wb") as stream:
+            stream.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+            offsets = [0]
+            for number, obj in enumerate(objects, 1):
+                offsets.append(stream.tell())
+                stream.write(f"{number} 0 obj\n".encode() + obj + b"\nendobj\n")
+            xref = stream.tell()
+            stream.write(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode())
+            stream.write(b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:]))
+            stream.write(f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_ref} 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode())
+        os.replace(temporary, output_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return output_path
+
+
 def assemble_epub(image_paths: Iterable[str | Path], output: str | Path, title: str) -> Path:
-    """Create a minimal, deterministic image EPUB from local page files."""
     pages = [Path(page) for page in image_paths]
     if not pages:
         raise ValueError("at least one page is required")
