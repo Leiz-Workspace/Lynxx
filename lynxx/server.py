@@ -41,6 +41,7 @@ from .library.importer import import_document  # noqa: E402
 from .logger import Logger  # noqa: E402
 from .modspec import re_abbr, re_kind_token  # noqa: E402
 from .module import ProcModule  # noqa: E402
+from .policy import Operation, list_sources, source_status  # noqa: E402
 from .rex import re_api_credentials  # noqa: E402
 from .safety import blocked_tag  # noqa: E402
 from .search_kinds import id_search_supported, is_module_meta, kind_of, kind_tokens  # noqa: E402
@@ -205,6 +206,22 @@ def _with_downloader(abbr: str, tags: str, extra_args: list[str], fn: Callable[[
 
 LIBRARY_DB_NAME = 'index/library.sqlite'
 LIBRARY_ROOT_NAME = 'library'
+
+
+def m_source_list(_: dict) -> list[dict[str, object]]:
+    return list_sources()
+
+
+def m_source_policy(p: dict) -> dict[str, object]:
+    source_id, url, operation = p.get('sourceId'), p.get('url'), p.get('operation')
+    if not all(isinstance(value, str) and value for value in (source_id, url, operation)):
+        raise RpcError(-32602, 'sourceId, url and operation are required')
+    try:
+        op = Operation(operation)
+    except ValueError as err:
+        raise RpcError(-32602, f'unsupported operation: {operation}') from err
+    decision = source_status(source_id, url, op)
+    return {'allowed': decision.allowed, 'decision': decision.decision, 'reason': decision.reason, 'policyVersion': decision.policy_version}
 
 
 def library_db() -> LibraryDB:
@@ -1007,6 +1024,8 @@ METHODS: dict[str, Callable[[dict], Any]] = {
     'gender.modelLoad': m_gender_model_load,
     'gender.modelUnload': m_gender_model_unload,
     'index.stats': m_index_stats,
+    'source.list': m_source_list,
+    'source.policy': m_source_policy,
     'library.import': m_library_import,
     'library.artifacts': m_library_artifacts,
     'reader.progress.get': m_reader_progress_get,
