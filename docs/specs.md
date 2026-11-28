@@ -1,6 +1,6 @@
 # Lynxx — Đặc tả (truyện, sách, extension vBook)
 
-Lynxx bắt nguồn từ Lustra (một app tải booru); từ 2.1.0 phần booru đã được gỡ hẳn, Lynxx chỉ còn truyện và sách.
+Lynxx bắt nguồn từ Lustra (một app tải booru); phần booru đã được gỡ hẳn trước bản phát hành đầu tiên (1.0.0), Lynxx chỉ còn truyện và sách.
 
 ## 1. Phạm vi
 

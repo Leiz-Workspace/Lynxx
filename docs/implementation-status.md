@@ -44,7 +44,7 @@
 - **Dọn booru (mục 5, một phần)**: README, `docs/specs.md`, mô tả `app/package.json` / `pyproject.toml`, CI chạy test
   Lynxx.
 
-### Bản 2.1.0 (2026-11-28)
+### Bản 1.0.0 (2026-11-28, bản phát hành đầu tiên)
 - **Gỡ hẳn hệ booru (mục 5)**: trang Tìm kiếm / Đã tải / Tags A–Z / Extensions booru và các mục Cài đặt booru; 16
   extension trong `extensions/`, danh sách tag `2tags/`, lõi tải booru (CLI, downloader, tag DB, lọc giới tính, model
   server, index tải, catalog có chữ ký, trình tạo extension AI); main.js còn ~1.100 dòng, app.js ~420 dòng. Lõi Python chỉ

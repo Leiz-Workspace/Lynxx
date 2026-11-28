@@ -102,7 +102,7 @@ function writeJsonAtomic(file, data) {
 }
 
 function browserLikeUA(ua, appNames = []) {
-  // Electron's own User-Agent names Electron and the app ('… lynxx-desktop/2.1.0 Chrome/142.0.0.0 Electron/45.2.1 Safari/537.36'):
+  // Electron's own User-Agent names Electron and the app ('… lynxx-desktop/1.0.0 Chrome/142.0.0.0 Electron/45.2.1 Safari/537.36'):
   // both go (WAF rules aimed at Electron, the app advertised to every site). The Chrome version stays: the page's scripts run on
   // that engine
   const names = ['Electron', ...appNames].filter((n) => typeof n === 'string' && n.trim()).map((n) => escapeRe(n.trim()));

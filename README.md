@@ -30,8 +30,8 @@ formats open in the same library and reader.
   chm, doc, dot, wps, docx, docm, dotx, dotm, odt, ott, fodt, rtf, hwp, hwpx, hwpml. Files are converted without any
   network access (pure-Python readers, sanitized XHTML); DRM-protected books are refused. The original file is kept.
 
-Lynxx started as a fork of Lustra, a booru downloader; since 2.1.0 that part is gone and Lynxx is about comics, novels and
-books only.
+Lynxx started as a fork of Lustra, a booru downloader; that part was removed before the first release (1.0.0) and Lynxx
+is about comics, novels and books only.
 
 ## Download
 

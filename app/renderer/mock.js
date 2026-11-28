@@ -24,11 +24,11 @@
 
   window.lynxx = {
     rpc: async (method) => {
-      if (method === 'app.info') return { name: 'Lynxx', version: '2.1 r0 (mock)', python: '3.13' };
+      if (method === 'app.info') return { name: 'Lynxx', version: '1.0 r0 (mock)', python: '3.13' };
       if (method === 'formats.supported') return { extensions: ['epub', 'pdf', 'txt', 'mobi', 'azw3', 'fb2', 'cbz', 'docx', 'odt', 'rtf', 'html', 'md'] };
       throw new Error(`method not allowed: ${method}`);
     },
-    sidecarStatus: async () => ({ ok: true, info: { name: 'Lynxx', version: '2.1 r0 (mock)', python: '3.13' } }),
+    sidecarStatus: async () => ({ ok: true, info: { name: 'Lynxx', version: '1.0 r0 (mock)', python: '3.13' } }),
     settings: {
       get: async () => ({ settings: structuredClone(settings), appearance: appearance() }),
       set: async (patch) => {
@@ -40,14 +40,14 @@
     dialogs: { folder: async () => '', image: async () => '', document: async () => '' },
     appearance: { setBackgroundImage: async () => appearance() },
     app: {
-      info: async () => ({ version: '2.1.0', electron: 'mock', platform: 'browser', userData: '~/.config/Lynxx', python: '.venv/bin/python', core: 'python', repo: '.', sidecar: { name: 'Lynxx', version: '2.1 r0', python: '3.13' } }),
+      info: async () => ({ version: '1.0.0', electron: 'mock', platform: 'browser', userData: '~/.config/Lynxx', python: '.venv/bin/python', core: 'python', repo: '.', sidecar: { name: 'Lynxx', version: '1.0 r0', python: '3.13' } }),
       relaunch: async () => location.reload(), installLauncher: async () => ({ ok: false, message: 'mock' }), openPath: async () => '', openExternal: async () => false,
     },
     thumbUrl: (url) => url, // the mock loads the address itself
     on: (ch, cb) => { (listeners[ch] = listeners[ch] || []).push(cb); return () => {}; },
     ...bookMock(),
   };
-  setTimeout(() => emit('sidecar:status', { ok: true, info: { version: '2.1 r0 (mock)' } }), 300);
+  setTimeout(() => emit('sidecar:status', { ok: true, info: { version: '1.0 r0 (mock)' } }), 300);
 
   // ---------------------------------------------------------------- library / extensions / reader (renderer/books.js)
   function bookMock() {
