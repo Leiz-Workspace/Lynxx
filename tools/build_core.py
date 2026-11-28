@@ -51,7 +51,9 @@ def _lynxx_modules() -> list[str]:
     """Core modules importable without tkinter (GUI modules fail to import and are left out). Catalog extensions are loaded from
     files at run time and import lynxx modules the core itself may not use, so every importable module is bundled"""
     names = []
-    for pkg in ('lynxx', 'lynxx/vcs', 'lynxx/extgen', 'lynxx/aigen'):
+    # lynxx/formats: the document converters are imported by name at run time (lynxx.formats.convert), never statically
+    for pkg in ('lynxx', 'lynxx/vcs', 'lynxx/extgen', 'lynxx/aigen', 'lynxx/formats', 'lynxx/export', 'lynxx/library', 'lynxx/artifacts',
+                'lynxx/policy', 'lynxx/sources'):
         for p in sorted((ROOT / pkg).glob('*.py')):
             # sandbox_boot runs on import (added below without the import probe); extgen.__main__ is the extgen command
             if p.stem not in ('__init__', '__main__', 'frozen_main', 'sandbox_boot') or (pkg, p.stem) == ('lynxx/extgen', '__main__'):
