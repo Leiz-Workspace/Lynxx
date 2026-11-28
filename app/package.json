@@ -2,7 +2,7 @@
   "name": "lynxx-desktop",
   "productName": "Lynxx",
   "desktopName": "lynxx.desktop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Lynxx desktop: download, read and export comics, novels and books (site extensions, local EPUB/PDF/MOBI/…)",
   "homepage": "https://github.com/Leiz-Workspace/Lynxx",
   "author": "Lynxx contributors",
