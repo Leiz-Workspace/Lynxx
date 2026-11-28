@@ -9,7 +9,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 APP_NAME = 'Lynxx'
 APP_VER_MAJOR = '1'
 APP_VER_SUB = '0'
-APP_REVISION = '1'
+APP_REVISION = '2'
 APP_IS_BETA = False
 APP_IS_BETA_TEXT = 'b' * APP_IS_BETA
 APP_REV_DATE = '28 Nov 2026'
