@@ -1,4 +1,4 @@
-// Lynxx extension sandbox page: runs one extension script per 'run' message with the vBook runtime.
+// Lynxx extension sandbox page: runs one extension script per 'run' message with the extension runtime.
 'use strict';
 
 (() => {

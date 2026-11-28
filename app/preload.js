@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('lynxx', {
     progressGet: (chapterId) => invoke('reader:progressGet', chapterId),
     progressSet: (p) => invoke('reader:progressSet', p), // {chapterId, page, scrollOffset, mode, zoom, direction}
   },
-  // vBook-format extensions: installed from a folder / plugin.zip / link / repository index (main confirms natively); their
+  // extensions: installed from a folder / plugin.zip / link / repository index (main confirms natively); their
   // scripts run in main's sandbox, never in this page
   plugins: {
     list: () => invoke('plugins:list'),

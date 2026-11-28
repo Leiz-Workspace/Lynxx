@@ -1,4 +1,4 @@
-// Lynxx renderer: collection library ("Thư viện"), vBook-format extensions ("Nguồn truyện"), book download jobs, the
+// Lynxx renderer: collection library ("Thư viện"), extensions ("Nguồn truyện"), book download jobs, the
 // export dialog and the reader. Loaded after app.js and uses its helpers ($, h, toast, errMsg, openModal, showPage…).
 // Every call goes through window.lynxx (preload bridge or mock.js); extension code never runs in this page.
 'use strict';
@@ -163,7 +163,7 @@
     const range = h('span', { class: 'row', hidden: true }, 'từ', from, 'đến', to);
     const missingSel = h('select', {},
       c.pluginId ? h('option', { value: 'download' }, 'Tải trước khi xuất') : null, h('option', { value: 'skip' }, 'Bỏ qua'),
-      h('option', { value: 'link' }, c.remoteChapters ? 'Giữ link ảnh gốc (như vBook)' : 'Ghi liên kết tới chương gốc'));
+      h('option', { value: 'link' }, c.remoteChapters ? 'Giữ link ảnh gốc' : 'Ghi liên kết tới chương gốc'));
     const sw = (key) => toggle(st[key], (v) => { st[key] = v; });
     const missingCount = c.chapters.filter((x) => x.state !== 'ready').length;
     const optRow = (icon, label, control, sub) => h('div', { class: 'opt-row' }, h('span', { class: 'opt-ic' }, icon), h('div', { class: 'opt-label' }, h('span', {}, label), sub || null), control);
@@ -219,7 +219,7 @@
     document.addEventListener('click', function off(e) { if (!fmtRow.contains(e.target)) { fmtMenu.hidden = true; } if (!document.body.contains(dialog)) document.removeEventListener('click', off); });
   }
 
-  // ================================================================ sources (vBook extensions)
+  // ================================================================ sources (extensions)
   const src = { plugins: [], current: '', results: [], next: '', more: null, tab: 'browse' };
 
   async function loadPlugins() {
@@ -483,9 +483,17 @@
     src.tab = b.dataset.tab;
     $$('#src-tabs button').forEach((x) => x.classList.toggle('on', x === b));
     for (const t of ['browse', 'installed', 'repo']) $(`#src-${t}`).hidden = t !== src.tab;
-    if (src.tab === 'repo') renderRepoSaved();
+    if (src.tab === 'repo') openRepoTab();
     if (src.tab === 'browse' && !$('#src-results').children.length) loadHome();
   }));
+  // the repository tab shows the first saved repository at once (the default ones on a new profile)
+  async function openRepoTab() {
+    await renderRepoSaved();
+    if (repo.data || $('#repo-url').value.trim()) return;
+    const first = await api().plugins.repositories().then((l) => l[0], () => '');
+    if (first) { $('#repo-url').value = first; loadRepo(); }
+  }
+  $('#src-open-repo')?.addEventListener('click', () => $('#src-tabs button[data-tab="repo"]')?.click());
 
   // ================================================================ book download jobs (Tải xuống)
   const bookJobs = new Map();

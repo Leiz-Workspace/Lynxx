@@ -84,7 +84,7 @@ PLUGIN_FILE_MAX = 10 * 1024 * 1024
 
 PLUGIN_TOTAL_MAX = 60 * 1024 * 1024
 re_plugin_member = re.compile(r'^(?:[^/]{1,120}/)?(?:plugin\.json|icon\.png|src/[A-Za-z0-9_.-]{1,80}\.js)$')
-'''the files of a vBook extension package: anything else in the archive is skipped'''
+'''the files of an extension package: anything else in the archive is skipped'''
 
 
 def m_source_list(_: dict) -> list[dict[str, object]]:
@@ -241,7 +241,7 @@ def m_export_forget(p: dict) -> dict:
 
 
 def m_plugins_unpack(p: dict) -> dict:
-    """Extract a vBook-format extension archive: only plugin.json, icon.png and src/*.js (optionally under one folder)"""
+    """Extract an extension archive: only plugin.json, icon.png and src/*.js (optionally under one folder)"""
     import zipfile
     archive = pathlib.Path(_str_param(p, 'archive')).expanduser().resolve(strict=True)
     dest = pathlib.Path(_str_param(p, 'dest')).expanduser().resolve()
@@ -279,7 +279,7 @@ def m_plugins_unpack(p: dict) -> dict:
     except zipfile.BadZipFile as err:
         raise RpcError(-32001, 'file không phải .zip hợp lệ') from err
     if not written:
-        raise RpcError(-32001, 'archive không có plugin.json / src/*.js của extension vBook')
+        raise RpcError(-32001, 'archive không có plugin.json / src/*.js của extension')
     return {'ok': True, 'files': written}
 
 

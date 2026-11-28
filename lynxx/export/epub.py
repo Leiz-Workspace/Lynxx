@@ -1,6 +1,6 @@
 """EPUB 2 / EPUB 3 / KEPUB writer for library collections and converted documents.
 
-Layout (the same as vBook's exports, so other readers and converters treat Lynxx books alike)::
+Layout (the one common reader apps export, so other readers and converters treat Lynxx books alike)::
 
     mimetype                      (first, stored)
     META-INF/container.xml
@@ -184,7 +184,7 @@ class _Writer:
                 return f'href="{target}#{anchor}"' if target and anchor not in own else match.group(0)
             parts.append(re.sub(r'href="#([^"]+)"', relink, body))
         elif chapter.remote_images:
-            # not downloaded, images known by address: linked like vBook's exports (a reader online shows them)
+            # not downloaded, images known by address: linked by address (a reader online shows them)
             parts.extend(f'<div class="page"><img src="{esc(url)}" alt=""/></div>' for url in chapter.remote_images)
         else:
             link = f' <a href="{esc(chapter.source_url)}">{esc(chapter.source_url)}</a>' if re.match(r"^https?://", chapter.source_url or "") else ""

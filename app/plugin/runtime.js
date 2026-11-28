@@ -1,4 +1,4 @@
-// Lynxx plugin runtime: the vBook extension API (fetch, Http, Html, Response, load, Console, sleep, localStorage,
+// Lynxx plugin runtime: the extension API (fetch, Http, Html, Response, load, Console, sleep, localStorage,
 // localCookie, cacheStorage, UserAgent, Engine.newBrowser) on top of a synchronous `host` object.
 // The same file runs in the sandboxed plugin renderer (plain <script>, host = preload bridge over sendSync) and in Node
 // (tests and the dev CLI). Extension code is plain sloppy-mode JavaScript written for Rhino: it calls fetch()
@@ -80,7 +80,7 @@
 
     class JElements extends Array {
       size() { return this.length; }
-      // vBook: get / first / last on a missing index give an empty element whose methods return "" (never null)
+      // get / first / last on a missing index give an empty element whose methods return "" (never null)
       get(i) { return this[i] ?? emptyElement(); }
       first() { return this.length ? this[0] : emptyElement(); }
       last() { return this.length ? this[this.length - 1] : emptyElement(); }
@@ -327,7 +327,7 @@
         else { body = toQuery(body); if (!ct) headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'; }
       }
       const request = { url: target, method, headers, body: body === undefined || body === null ? null : String(body), bodyBase64: opts.bodyBase64 || null, timeout: Number(opts.timeout) || 0 };
-      // vBook: fetch never throws; a network failure is status 504 with an empty body
+      // fetch never throws: a network failure is status 504 with an empty body
       let raw;
       try { raw = host.request(request); } catch (err) { raw = { ok: false, status: 504, error: String(err && err.message ? err.message : err) }; }
       if (!raw || (!raw.status && raw.error)) raw = { ok: false, status: 504, headers: {}, body: '', error: raw ? raw.error : 'no response' };
@@ -390,8 +390,8 @@
     };
 
     const Response = {
-      success: (data, next) => ({ __vbook: 'response', ok: true, data: data === undefined ? null : data, next: next === undefined || next === null ? null : String(next) }),
-      error: (message) => ({ __vbook: 'response', ok: false, error: String(message ?? 'error') }),
+      success: (data, next) => ({ __ext: 'response', ok: true, data: data === undefined ? null : data, next: next === undefined || next === null ? null : String(next) }),
+      error: (message) => ({ __ext: 'response', ok: false, error: String(message ?? 'error') }),
     };
 
     const Console = { log: (...a) => log('info', a), info: (...a) => log('info', a), warn: (...a) => log('warn', a), error: (...a) => log('error', a), debug: (...a) => log('debug', a) };
@@ -442,7 +442,7 @@
       },
     };
 
-    // browser.urls() is a JSON string in older vBook apps and an array in newer ones: an array that prints as JSON
+    // browser.urls() is a JSON string in older reader apps and an array in newer ones: an array that prints as JSON
     const jsonList = (urls) => { const arr = Array.isArray(urls) ? urls.slice() : []; arr.toString = () => JSON.stringify(Array.from(arr)); return arr; };
 
     const unsupported = (name) => new Proxy({}, { get: () => () => { throw new Error(`${name} is not supported by Lynxx`); } });
@@ -471,7 +471,7 @@
   const BUILTIN_CRYPTO = new Set(['crypto.js', 'cryptojs.js', 'crypto-js.js']);
 
   function inlineLoads(files, name, depth = 0, seen = new Set([name])) {
-    // vBook: load('x.js') is text substitution before the script runs; a missing file expands to nothing and
+    // load('x.js') is text substitution before the script runs; a missing file expands to nothing and
     // crypto.js always means the bundled CryptoJS (a global here)
     const source = files[name];
     if (typeof source !== 'string') throw new Error(`script not found in the extension: ${name}`);
@@ -487,7 +487,7 @@
   }
 
   function normalizeResult(value) {
-    if (value && typeof value === 'object' && value.__vbook === 'response') {
+    if (value && typeof value === 'object' && value.__ext === 'response') {
       return value.ok ? { ok: true, data: toPlain(value.data), next: value.next } : { ok: false, error: value.error };
     }
     if (value === null || value === undefined) return { ok: false, error: 'extension returned no result' };
@@ -522,7 +522,7 @@
     try {
       const source = inlineLoads(files, entry);
       const names = Object.keys(api.globals);
-      // plugin.json "config" values are injected as string constants (vBook); as outer parameters, an extension's own
+      // plugin.json "config" values are injected as string constants; as outer parameters, an extension's own
       // `let DOMAIN` in the inner scope stays legal
       const config = Object.entries(ctx.config || {}).filter(([k]) => IDENT.test(k) && !RESERVED.has(k) && !names.includes(k));
       const params = [...names, ...config.map(([k]) => k)];

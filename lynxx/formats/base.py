@@ -60,7 +60,7 @@ class Chapter:
     """Sanitized XHTML body fragment (no <html>/<head>/<body>)."""
     remote_images: list[str] = field(default_factory=list)
     """Pages of an image chapter that the file only links to (http(s) URLs, not embedded): the library keeps the chapter
-    as "not downloaded" with these addresses so the images can be fetched later (exports of vBook keep such links)."""
+    as "not downloaded" with these addresses so the images can be fetched later (exports of reader apps keep such links)."""
 
 
 @dataclass(slots=True)

@@ -4,8 +4,8 @@
 
 # Lynxx
 
-Lynxx is a desktop app to **download, read and export comics, novels and books**. Sites are added with extensions in
-the **vBook format** (the same `plugin.json` + `src/*.js` packages the vBook app uses), and local files of about thirty
+Lynxx is a desktop app to **download, read and export comics, novels and books**. Sites are added with extensions (a
+`plugin.json` + `src/*.js` package per site, installed from ready-made repositories), and local files of about thirty
 formats open in the same library and reader.
 
 <p align="center">
@@ -15,8 +15,8 @@ formats open in the same library and reader.
 - **Library ("Thư viện")**: every book is a collection of chapters with cover, author, description and reading
   progress. Downloaded chapters are never fetched again; "Cập nhật chương mới" reads the site's chapter list again and
   downloads only what is new.
-- **Sources ("Nguồn truyện")**: install vBook-format extensions from a folder, a `plugin.zip`, a link or a repository
-  index (`…/plugin.json`), browse their home tabs and genres, search, open a book by pasting its link, pick chapters and
+- **Sources ("Nguồn truyện")**: install extensions from a repository (two are listed from the first start, several
+  hundred comic and novel sources), a folder, a `plugin.zip` or a link, browse their home tabs and genres, search, open a book by pasting its link, pick chapters and
   download. Extension scripts run in a Chromium sandbox; their only way out is Lynxx's HTTP bridge (cookie jar per app,
   private addresses refused, per-host pacing, `Retry-After`).
 - **Downloads ("Tải xuống")**: one job per book: chapter list, then every missing chapter; pages go to a staging folder
@@ -28,8 +28,7 @@ formats open in the same library and reader.
 - **Export**: EPUB 2, EPUB 3, KEPUB (Kobo), CBZ (with `ComicInfo.xml` bookmarks) and PDF (comics: one page per image
   with chapter bookmarks; novels: printed by Chromium with a linked table of contents). Options: scope (all, downloaded,
   a range), introduction page (cover, author, genres, description), table of contents with links to every chapter,
-  chapter titles, what to do with chapters not downloaded yet (download first, skip, keep the image links as vBook
-  does), and keeping an exported file up to date when new chapters arrive.
+  chapter titles, what to do with chapters not downloaded yet (download first, skip, keep the image links), and keeping an exported file up to date when new chapters arrive.
 - **Import from device**: epub, txt, mobi, prc, azw, azw3, fb2, fbz, umd, pdf, cbz, zip, html, htm, xhtml, md, markdown,
   chm, doc, dot, wps, docx, docm, dotx, dotm, odt, ott, fodt, rtf, hwp, hwpx, hwpml. Files are converted without any
   network access (pure-Python readers, sanitized XHTML); DRM-protected books are refused. The original file is kept.
@@ -67,7 +66,7 @@ The Electron app starts the Python sidecar (`python3 -m lynxx.server`, standard 
 
 ## Extensions
 
-A vBook extension is a folder:
+An extension is a folder:
 
 ```
 plugin.json      metadata (name, source, regexp, type comic | novel, …) and the script map
@@ -75,7 +74,7 @@ icon.png
 src/home.js genre.js gen.js search.js detail.js page.js toc.js chap.js config.js …
 ```
 
-Lynxx implements the vBook runtime (synchronous `fetch`, `Http`, `Html.parse` with Jsoup selectors, `Response`,
+Lynxx runs them with its own runtime (synchronous `fetch`, `Http`, `Html.parse` with Jsoup selectors, `Response`,
 `load()`, CryptoJS, `localStorage`, `Engine.newBrowser()`); encrypted packages (`metadata.encrypt`) and the `tts`,
 `translate`, `audio`, `video` types are not supported. Authors can run an extension outside the app:
 

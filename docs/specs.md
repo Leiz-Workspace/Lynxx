@@ -1,4 +1,4 @@
-# Lynxx — Đặc tả (truyện, sách, extension vBook)
+# Lynxx — Đặc tả (truyện, sách, extension)
 
 Lynxx bắt nguồn từ Lustra (một app tải booru); phần booru đã được gỡ hẳn trước bản phát hành đầu tiên (1.0.0), Lynxx chỉ còn truyện và sách.
 
@@ -6,7 +6,7 @@ Lynxx bắt nguồn từ Lustra (một app tải booru); phần booru đã đư�
 
 Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 
-- nguồn mạng qua extension định dạng **vBook** (plugin.json + src/*.js);
+- nguồn mạng qua **extension** (plugin.json + src/*.js), cài từ kho extension;
 - file trên máy (khoảng 30 định dạng, chuyển đổi offline);
 - thư viện dạng collection → chapter → page/nội dung, có tiến độ đọc;
 - xuất EPUB 2 / EPUB 3 / KEPUB / CBZ / PDF và cập nhật file đã xuất khi có chương mới.
@@ -24,13 +24,13 @@ Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 | Main | `app/plugin/http.js` | HTTP cho extension và tải trang (cookie, chặn IP nội bộ, nhịp theo host, Retry-After, resume) |
 | Main | `app/plugin/downloader.js` | Job tải truyện (`BookJobs`) |
 | Sandbox | `app/plugin/sandbox.html`, `sandbox.js`, `sandbox-preload.js` | Renderer ẩn chạy script extension |
-| Runtime | `app/plugin/html.js`, `runtime.js`, `cryptojs.js`, `service.js` | Parser HTML + selector Jsoup, API vBook, CryptoJS, chuẩn hoá kết quả |
+| Runtime | `app/plugin/html.js`, `runtime.js`, `cryptojs.js`, `service.js` | Parser HTML + selector Jsoup, API extension, CryptoJS, chuẩn hoá kết quả |
 | Sidecar | `lynxx/server.py` | JSON-RPC: thư viện, đọc, xuất, giải nén extension (chỉ thư viện chuẩn của Python) |
 | Thư viện | `lynxx/library/{db,books,importer}.py` | SQLite v2, collection/chapter/page, nhập file |
 | Định dạng | `lynxx/formats/*.py` | Bộ chuyển đổi → `Document` |
 | Xuất | `lynxx/export/*.py` | EPUB/KEPUB, CBZ, PDF ảnh, HTML để in PDF |
 
-## 3. Extension vBook
+## 3. Extension
 
 ### 3.1 Gói và manifest
 
@@ -38,13 +38,15 @@ Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 home, genre, search, detail, page, toc, chap…; `config`: hằng số người dùng chỉnh được). `src/*.js` ở cấp đầu của `src/`.
 id = slug(name) + 8 hex của sha256(name + source): cập nhật cùng extension giữ id, storage và collection.
 
-Không chạy: `metadata.encrypt = true` (khoá của vBook không công khai), loại `tts`, `translate`, `audio`, `video`,
-`news`, `forum`, `ai`.
+Không chạy: `metadata.encrypt = true` (khoá giải mã không công khai); extension vẽ lại ảnh bằng `Graphics` (thường để gỡ ảnh
+site xáo trộn / DRM, ví dụ Cứu Truyện: Lynxx không gỡ DRM); loại `tts`, `translate`, `audio`, `video`, `news`, `forum`, `ai`.
 
 ### 3.2 Cài đặt
 
 Từ thư mục, `plugin.zip`, link, hoặc kho (JSON `{metadata, data: [{name, version, type, path, icon, …}]}`). Mọi cách đều
-qua hộp thoại xác nhận của main. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
+qua hộp thoại xác nhận của main. Kho có sẵn từ lần mở đầu (thêm một lần, người dùng xoá thì không thêm lại): kho tổng của
+vbookext.me (`https://www.vbookext.me/api/plugin.json`, vài trăm nguồn truyện chữ / truyện tranh) và kho tham chiếu
+`Darkrai9x/vbook-extensions`. Lynxx không cài sẵn extension nào. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
 `src/*.js`, chặn traversal, symlink, file mã hoá, ≤ 10 MB/file, ≤ 60 MB tổng. Gói được kiểm tra rồi chép vào
 `<data>/plugins/installed/<id>/` bằng thư mục staging + rename.
 
@@ -60,7 +62,7 @@ qua hộp thoại xác nhận của main. File zip do sidecar giải nén (`plug
   partition `persist:lynxx-plugins` gửi/lưu thủ công; ≥ 250 ms giữa hai request cùng host; 429/503 có `Retry-After`
   ≤ 60 s thì chờ và thử lại tối đa 2 lần; thân ≤ 32 MB; timeout mặc định 120 s.
 
-### 3.4 Ngữ nghĩa runtime (khớp vBook)
+### 3.4 Ngữ nghĩa runtime
 
 `fetch` không ném lỗi (lỗi mạng = status 504); `first()/last()/get(i)` trả phần tử rỗng; `attr()` trả `""`;
 `[attr~=regex]` là regex; `:contains` không phân biệt hoa thường; parser tạo `html/head/body` và `tbody` như Jsoup;
@@ -71,7 +73,7 @@ của hàm ngoài nên `let DOMAIN` trong script vẫn hợp lệ; `Http.post(ur
 
 Link tương đối nối với `host` hoặc `source`, `//cdn` → `https:`; item không có `name` bị bỏ; trùng link bị bỏ;
 description/detail HTML → text; `page.js` + `toc.js` ghép, bỏ trùng, tối đa 20 000 chương; ảnh comic: chuỗi hoặc
-`{link, fallback, referrerpolicy, script}`; fragment `#referrerpolicy=…&script=…` của vBook được tách ra.
+`{link, fallback, referrerpolicy, script}`; fragment `#referrerpolicy=…&script=…` được tách ra.
 
 ## 4. Job tải truyện
 
@@ -85,7 +87,7 @@ description/detail HTML → text; `page.js` + `toc.js` ghép, bỏ trùng, tối
 4. Chương lỗi được đánh dấu `failed` và không chặn chương sau; huỷ giữ lại file `.part` để lần sau tiếp tục.
 5. Xong: làm mới các file đã xuất có bật "Tự cập nhật".
 
-Biến thể `startRemote`: chương của file EPUB đã nhập chỉ có link ảnh (vBook xuất chương chưa tải theo cách này) được
+Biến thể `startRemote`: chương của file EPUB đã nhập chỉ có link ảnh (các app đọc truyện xuất chương chưa tải theo cách này) được
 tải về như trên, không cần extension.
 
 ## 5. Thư viện (SQLite v2)
@@ -117,7 +119,7 @@ bị chặn, giải nén có trần, XML có `<!ENTITY` bị từ chối, không
 
 ## 7. Xuất
 
-Cấu trúc EPUB giống bản xuất của vBook: `OEBPS/content.opf`, `toc.ncx`, `Styles/stylesheet.css`, `Images/cover.*`,
+Cấu trúc EPUB theo bố cục phổ biến: `OEBPS/content.opf`, `toc.ncx`, `Styles/stylesheet.css`, `Images/cover.*`,
 `Images/img_00001.*`, `Text/cover.xhtml`, `introduction.xhtml`, `toc.xhtml` (link tới từng chương),
 `chapter_N.xhtml`; `mimetype` đứng đầu, không nén. EPUB 3 thêm `nav.xhtml` và `dcterms:modified`; KEPUB thêm
 `koboSpan` và đuôi `.kepub.epub`. CBZ: ảnh theo thứ tự + `ComicInfo.xml` (Title, Series, Summary, Writer, Genre, Web,
@@ -136,6 +138,6 @@ chương. PDF truyện chữ: HTML một file → `printToPDF` (A5, outline từ
 
 ## 9. Không làm
 
-- Giải mã/unscramble ảnh có DRM, vượt CAPTCHA hay anti-bot (extension dùng `Graphics` của vBook không chạy được).
+- Giải mã/unscramble ảnh có DRM, vượt CAPTCHA hay anti-bot (extension dùng `Graphics` không chạy được).
 - Mở khoá chương VIP/trả phí (chương `lock`/`pay` chỉ được liệt kê).
 - Model khôi phục vùng bị che trong nội dung tình dục (`lynxx/uncen.py` chỉ có contract an toàn).

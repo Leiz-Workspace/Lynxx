@@ -179,7 +179,7 @@ def convert(path: Path) -> Document:
                 title = strip_tags(lead.group(2))[:300]
                 clean = clean[lead.end():]
             bodies.append({"href": href, "title": title, "html": clean, "text": strip_tags(clean), "remote": remote, "images": clean.count("<img")})
-        # an "Introduction" page (vBook / Lynxx exports) becomes the description, not a chapter
+        # an "Introduction" page (reader app / Lynxx exports) becomes the description, not a chapter
         for entry in list(bodies[:3]):
             base_name = posixpath.basename(entry["href"]).lower()
             if base_name.startswith("introduction.") or entry["title"].strip().lower() in {"introduction", "giới thiệu", "gioi thieu"}:

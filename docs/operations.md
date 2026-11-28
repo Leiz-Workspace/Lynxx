@@ -18,7 +18,7 @@ này (thử nghiệm trên hồ sơ riêng).
 
 ```bash
 python3 -m unittest discover -s lynxx/tests -t .
-npm --prefix app run check          # cú pháp + test Node: icon, runtime vBook, job tải
+npm --prefix app run check          # cú pháp + test Node: icon, runtime extension, job tải
 # cần màn hình (hoặc xvfb-run -a):
 npx --prefix app electron app/test/electron-smoke.js      # sandbox, cầu nối đồng bộ, HTTP thật, printToPDF, WebP → JPEG
 npx --prefix app electron app/test/electron-e2e.js        # sidecar thật + site giả: cài extension → tải → thư viện → reader → xuất

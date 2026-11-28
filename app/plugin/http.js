@@ -1,7 +1,7 @@
 // Lynxx plugin host (Electron main): HTTP for extensions and downloads.
 // - every hop of a redirect chain is checked against private / loopback addresses (assertPublicHost)
 // - cookies live in the extensions' own session partition: sent and stored by hand so `response.request.headers.cookie`
-//   (read by many vBook extensions) is the cookie that was really sent
+//   (read by many extensions) is the cookie that was really sent
 // - per-host pacing and Retry-After (429 / 503) so a download never hammers a site
 // - downloadToFile streams into "<dest>.part", resumes it with Range when the server allows, then renames
 'use strict';

@@ -47,7 +47,7 @@
         <div class="empty glass" id="shelf-empty" hidden>Thư viện trống. Nhập sách từ máy, hoặc cài extension ở trang <b>Nguồn truyện</b> rồi tải truyện về.</div>
       </section>
 
-      <!-- SOURCES: vBook-format extensions -->
+      <!-- SOURCES: extensions (plugin.json + src/*.js) -->
       <section class="page" id="page-sources">
         <div class="page-head"><h1>Nguồn truyện</h1><span class="row">
           <div class="seg sm" id="src-tabs"><button data-tab="browse" class="on">Duyệt</button><button data-tab="installed">Đã cài</button><button data-tab="repo">Kho extension</button></div>
@@ -65,20 +65,20 @@
           <div class="src-tabs-row" id="src-home"></div>
           <div class="src-results" id="src-results"></div>
           <div class="row src-more"><button class="btn sm" id="src-more" hidden>Tải thêm</button></div>
-          <div class="empty glass" id="src-empty">Chưa có extension nào. Mở tab <b>Đã cài</b> hoặc <b>Kho extension</b> để cài extension định dạng vBook.</div>
+          <div class="empty glass" id="src-empty">Chưa có extension nào. Cài từ kho có sẵn ở tab <b>Kho extension</b>, hoặc từ thư mục, file plugin.zip hay link ở tab <b>Đã cài</b>.<div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm primary" id="src-open-repo">Mở kho extension</button></div></div>
         </div>
         <div id="src-installed" class="src-tab" hidden>
           <div class="row" style="margin-bottom:12px">
             <button class="btn sm" id="src-install-folder">Cài từ thư mục…</button>
             <button class="btn sm" id="src-install-zip">Cài từ plugin.zip…</button>
             <button class="btn sm" id="src-install-url">Cài từ link…</button>
-            <span class="muted">Extension định dạng vBook (plugin.json + src/*.js) chạy trong sandbox của Lynxx.</span>
+            <span class="muted">Extension (plugin.json + src/*.js) chạy trong sandbox của Lynxx.</span>
           </div>
           <div class="plugin-list" id="src-plugins"></div>
         </div>
         <div id="src-repo" class="src-tab" hidden>
           <div class="glass panel src-bar">
-            <input type="text" id="repo-url" placeholder="Link kho extension vBook (…/plugin.json)" spellcheck="false">
+            <input type="text" id="repo-url" placeholder="Link kho extension (…/plugin.json)" spellcheck="false">
             <button class="btn sm primary" id="repo-load">Tải danh sách</button>
             <button class="btn sm ghost" id="repo-save" title="Lưu link kho để mở lại sau">Lưu kho</button>
             <span class="grow"></span>

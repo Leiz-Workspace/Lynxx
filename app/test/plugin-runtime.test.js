@@ -1,4 +1,4 @@
-// node app/test/plugin-runtime.test.js — vBook runtime compatibility (html parser, selectors, API, CryptoJS, service)
+// node app/test/plugin-runtime.test.js — extension runtime compatibility (html parser, selectors, API, CryptoJS, service)
 'use strict';
 
 const assert = require('assert');
@@ -133,6 +133,15 @@ test('CryptoJS facade matches Node crypto (passphrase AES, keyed AES-CBC, hashes
   assert.strictEqual(r.data[3], crypto.createHash('md5').update('abc').digest('hex'));
   assert.strictEqual(r.data[4], crypto.createHash('sha256').update('abc').digest('base64'));
   assert.strictEqual(r.data[5], crypto.createHmac('sha256', 'k').update('m').digest('hex'));
+});
+
+test('an extension that redraws images with Graphics is not downloadable', () => {
+  const manifest = normalizeManifest({ metadata: { name: 'X', source: 'https://x.test', type: 'comic' }, script: { detail: 'detail.js', toc: 'toc.js', chap: 'chap.js' } });
+  const files = { 'detail.js': 'function execute(u) {}', 'toc.js': 'function execute(u) {}', 'chap.js': 'function execute(u) {}' };
+  assert.strictEqual(capabilities(manifest, files).downloadable, true);
+  const drm = capabilities(manifest, { ...files, 'image.js': 'var c = Graphics.createCanvas(w, h);' });
+  assert.strictEqual(drm.graphics, true);
+  assert.strictEqual(drm.downloadable, false);
 });
 
 test('service: detail/toc/chap normalization (comic)', async () => {

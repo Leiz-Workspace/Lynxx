@@ -106,10 +106,10 @@
     const collections = [
       { id: 'book-1', title: 'Học Viện Ma Pháp Kỳ Lạ', kind: 'comic', author: 'Tác Giả A', source: 'ComicSite', pluginId: 'comic-1', bookUrl: 'https://comic.example/b/1', coverUrl: coverArt('Học Viện Ma Pháp Kỳ Lạ', 'Tác giả A', 205, 0), chapters: comicChapters, lastChapterId: 'cc3', description: 'Một cậu bé bình thường được nhận vào học viện ma pháp.\nNhững ngày tháng kỳ lạ bắt đầu.', genres: ['Hài hước', 'Học đường', 'Phiêu lưu'], ongoing: true, exports: [] },
       { id: 'book-2', title: 'Kiếm Đạo Độc Tôn', kind: 'novel', author: 'Tác Giả B', source: 'NovelSite', pluginId: 'novel-1', bookUrl: 'https://novel.example/b/2', coverUrl: coverArt('Kiếm Đạo Độc Tôn', 'Tác giả B', 150, 2), chapters: novelChapters, lastChapterId: '', description: 'Truyện tiên hiệp.', genres: ['Tiên hiệp'], ongoing: false, exports: [{ id: 'e1', format: 'epub2', path: '/home/user/Documents/Kiếm Đạo Độc Tôn_NovelSite.epub', chapters: 30, size: 1200000, updatedAt: '', autoUpdate: true, options: {}, exists: true }] },
-      { id: 'local-2', title: 'Truyện nhập từ EPUB vBook', kind: 'comic', author: '', source: 'EPUB', pluginId: '', bookUrl: '', coverUrl: coverArt('Truyện nhập từ EPUB vBook', 'EPUB', 300, 3), remoteChapters: 2, chapters: [
+      { id: 'local-2', title: 'Truyện nhập từ EPUB', kind: 'comic', author: '', source: 'EPUB', pluginId: '', bookUrl: '', coverUrl: coverArt('Truyện nhập từ EPUB', 'EPUB', 300, 3), remoteChapters: 2, chapters: [
         { id: 'rc1', title: 'Chương 1', state: 'ready', kind: 'image', pages: 6, url: '', locked: false, error: '', position: 0 },
         { id: 'rc2', title: 'Chương 2', state: 'pending', kind: 'image', pages: 0, url: '', locked: false, error: '', position: 1 },
-        { id: 'rc3', title: 'Chương 3', state: 'pending', kind: 'image', pages: 0, url: '', locked: false, error: '', position: 2 }], lastChapterId: '', description: 'Nhập từ file vBook có chương chỉ chứa link ảnh.', genres: [], ongoing: false, exports: [] },
+        { id: 'rc3', title: 'Chương 3', state: 'pending', kind: 'image', pages: 0, url: '', locked: false, error: '', position: 2 }], lastChapterId: '', description: 'Nhập từ file EPUB có chương chỉ chứa link ảnh.', genres: [], ongoing: false, exports: [] },
       { id: 'local-1', title: 'Sổ tay ghi chú', kind: 'document', author: '', source: 'DOCX', pluginId: '', bookUrl: '', coverUrl: '', chapters: [{ id: 'dc1', title: 'Phần 1', state: 'ready', kind: 'text', pages: 0, url: '', locked: false, error: '', position: 0 }], lastChapterId: '', description: '', genres: [], ongoing: false, exports: [] },
     ];
     TITLES.slice(1, 9).forEach(([title, author, hue], i) => {
@@ -148,7 +148,7 @@
     return {
       plugins: {
         list: async () => plugins.map((p) => ({ ...p })),
-        repositories: async () => ['https://example.org/vbook/plugin.json'],
+        repositories: async () => ['https://example.org/ext/plugin.json'],
         installFolder: async () => null, installZip: async () => null,
         installUrl: async (url) => { await delay(300); const p = { ...plugins[1], id: `x-${Date.now()}`, name: url.split('/').slice(-2, -1)[0] || 'Mới' }; plugins.push(p); return p; },
         repoFetch: async (url) => { await delay(300); return { url, author: 'Mock repo', description: '', items: [

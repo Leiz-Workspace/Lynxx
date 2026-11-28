@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lynxx extension dev tool: run a vBook-format extension folder outside the app, with the same runtime and result
+// Lynxx extension dev tool: run an extension folder outside the app, with the same runtime and result
 // normalization as Lynxx (app/plugin/runtime.js + service.js). For extension authors and the new-site-extension skill.
 //
 //   node app/plugin/cli.js <extension-dir> check
@@ -128,7 +128,7 @@ function check() {
   const warnings = [];
   const m = pkg.manifest.metadata;
   if (!m.source || !/^https?:\/\//.test(m.source)) problems.push('metadata.source phải là URL http(s) của trang');
-  if (!m.version) warnings.push('metadata.version nên là số nguyên > 0 (vBook dùng để báo cập nhật)');
+  if (!m.version) warnings.push('metadata.version nên là số nguyên > 0 (dùng để báo có bản cập nhật)');
   if (m.encrypt) problems.push('metadata.encrypt = true: Lynxx không chạy extension mã hoá');
   if (!caps.content) problems.push(`metadata.type "${m.type}": Lynxx chỉ tải novel / comic / chinese_novel`);
   for (const key of ['detail', 'toc', 'chap']) if (!caps[key]) problems.push(`thiếu script "${key}" (bắt buộc để tải)`);
@@ -140,7 +140,7 @@ function check() {
       // eslint-disable-next-line no-new-func
       new Function(R.inlineLoads(pkg.files, name));
     } catch (err) { problems.push(`src/${name}: lỗi cú pháp: ${err.message}`); }
-    if (/\bJava\.type\b|\bjava\.|\bPackages\./.test(source)) problems.push(`src/${name}: dùng Java interop (không có trong Lynxx/vBook)`);
+    if (/\bJava\.type\b|\bjava\.|\bPackages\./.test(source)) problems.push(`src/${name}: dùng Java interop (không có trong Lynxx)`);
     if (/\bGraphics\./.test(source)) warnings.push(`src/${name}: dùng Graphics (Lynxx không hỗ trợ)`);
     if (/\bEngine\.newBrowser\b/.test(source)) warnings.push(`src/${name}: dùng Engine.newBrowser (chỉ chạy trong app, CLI không thử được)`);
     if (/\bfunction\s+execute\s*\(/.test(source) === false && Object.values(pkg.manifest.script).includes(name)) problems.push(`src/${name}: không có function execute(...)`);

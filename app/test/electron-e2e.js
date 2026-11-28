@@ -1,7 +1,7 @@
 // Electron end-to-end test of the book pipeline (dev only, needs a display and a Python with requirements.txt):
 //   LYNXX_PYTHON=.venv/bin/python npx --prefix app electron app/test/electron-e2e.js
 // A local HTTP server plays a comic site and a novel site; the real sidecar (python -m lynxx.server) runs on a scratch
-// data folder. Steps: install two vBook extensions -> download jobs through the sandbox -> library rows and files ->
+// data folder. Steps: install two extensions -> download jobs through the sandbox -> library rows and files ->
 // reader data -> exports (EPUB 2/3, KEPUB, CBZ, image PDF with WebP pages = Chromium transcode, text PDF = printToPDF)
 // -> "update" run finds the chapter the site published since and downloads only that one.
 // The extensions' session normally refuses private addresses; this test lifts that filter for 127.0.0.1 only.

@@ -1,4 +1,4 @@
-// Lynxx plugin host (Electron main): installed vBook-format extensions, the sandbox that runs their scripts, the
+// Lynxx plugin host (Electron main): installed extensions, the sandbox that runs their scripts, the
 // synchronous bridge (HTTP, sleep, storage, cookies, headless browser, crypto) and the high-level service per extension.
 //
 // Isolation: extension scripts run in hidden sandboxed renderers (Chromium sandbox, context isolation, no Node) whose
@@ -25,6 +25,12 @@ const RE_ID = /^[a-z0-9-]{1,48}$/;
 const STORAGE_MAX_BYTES = 2 * 1024 * 1024;
 const PLUGIN_PARTITION = 'persist:lynxx-plugins';
 const SANDBOX_PARTITION = 'lynxx-plugin-sandbox';
+// extension repositories listed in "Kho extension" from the first start: the community catalog of vbookext.me (several hundred
+// comic / novel sources) and the reference repository. Added once: a repository the user removes stays removed
+const DEFAULT_REPOSITORIES = [
+  'https://www.vbookext.me/api/plugin.json',
+  'https://raw.githubusercontent.com/Darkrai9x/vbook-extensions/master/plugin.json',
+];
 
 class PluginHost {
   /**
@@ -52,6 +58,11 @@ class PluginHost {
     fs.mkdirSync(this.installedDir, { recursive: true });
     fs.mkdirSync(this.storageDir, { recursive: true });
     try { this.state = { plugins: {}, repositories: [], ...JSON.parse(fs.readFileSync(this.stateFile, 'utf8')) }; } catch { /* first run */ }
+    if (!this.state.defaultRepositories) {
+      this.state.repositories = [...new Set([...DEFAULT_REPOSITORIES, ...(this.state.repositories || [])])];
+      this.state.defaultRepositories = 1;
+      this.saveState();
+    }
     this.pluginSession = session.fromPartition(PLUGIN_PARTITION);
     const ua = this.opts.userAgent(this.pluginSession);
     this.pluginSession.setUserAgent(ua);
@@ -131,9 +142,10 @@ class PluginHost {
       origin: st.origin || '', repository: st.repository || '', missing: pkg.missing,
       icon: pkg.icon ? `data:image/png;base64,${fs.readFileSync(pkg.icon).toString('base64')}` : '',
       config: Object.entries(pkg.manifest.config).map(([key, c]) => ({ key, ...c, value: (st.config || {})[key] ?? c.default })),
-      supported: caps.content && !pkg.manifest.metadata.encrypt,
-      unsupportedReason: pkg.manifest.metadata.encrypt ? 'Extension được mã hoá (encrypt): Lynxx không có khoá giải mã của vBook'
-        : !caps.content ? `Loại "${pkg.manifest.metadata.type}" chưa được hỗ trợ (chỉ novel / comic)` : '',
+      supported: caps.content && !caps.graphics && !pkg.manifest.metadata.encrypt,
+      unsupportedReason: pkg.manifest.metadata.encrypt ? 'Extension được mã hoá (encrypt): Lynxx không có khoá giải mã'
+        : !caps.content ? `Loại "${pkg.manifest.metadata.type}" chưa được hỗ trợ (chỉ novel / comic)`
+          : caps.graphics ? 'Extension vẽ lại ảnh bằng Graphics (thường để gỡ ảnh bị xáo trộn / DRM của site): Lynxx không hỗ trợ việc này' : '',
     };
   }
 
@@ -227,12 +239,12 @@ class PluginHost {
   }
 
   async fetchRepository(url) {
-    // vBook repository index: {metadata, data: [{name, author, version, type, locale, source, description, path, icon, tag}]}
+    // repository index: {metadata, data: [{name, author, version, type, locale, source, description, path, icon, tag}]}
     const bytes = await this.download(url, 8 * 1024 * 1024);
     let json;
     try { json = JSON.parse(bytes.toString('utf8').replace(/^﻿/, '')); } catch { throw new Error('kho không trả về JSON hợp lệ'); }
     const data = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : null;
-    if (!data) throw new Error('JSON không đúng định dạng kho extension vBook (thiếu "data")');
+    if (!data) throw new Error('JSON không đúng định dạng kho extension (thiếu "data")');
     const installed = new Map(this.list().filter((p) => !p.broken).map((p) => [`${p.name}\n${p.source}`, p]));
     return {
       url,
@@ -565,4 +577,4 @@ class PluginHost {
   }
 }
 
-module.exports = { PluginHost, PLUGIN_PARTITION };
+module.exports = { PluginHost, PLUGIN_PARTITION, DEFAULT_REPOSITORIES };

@@ -60,7 +60,7 @@ jobs:
           flake8 . --count --exit-zero --max-line-length=140 --statistics
       - name: Library, file formats, reader and exports
         run: python -m unittest discover -s lynxx/tests -t . -v
-      - name: Extension runtime (vBook format) and app scripts
+      - name: Extension runtime and app scripts
         shell: bash
         run: |
           node app/test/icon-utils.test.js

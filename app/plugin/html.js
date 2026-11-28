@@ -1,5 +1,5 @@
 // Lynxx plugin runtime: a dependency-free, lenient HTML parser with a Jsoup-compatible selector engine.
-// vBook extensions are written against Jsoup (Element.select, :contains, :eq, [attr~=regex]...). This file gives the same
+// Extensions are written against Jsoup (Element.select, :contains, :eq, [attr~=regex]...). This file gives the same
 // behaviour in any JavaScript host: the sandboxed plugin renderer (plain <script>) and Node (tests, the dev CLI).
 // It never executes scripts, never loads resources and never touches the network.
 (function (root, factory) {

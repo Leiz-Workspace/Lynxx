@@ -1,5 +1,5 @@
 // Lynxx extension sandbox preload (sandboxed renderer, context isolation): the only bridge extension code can reach.
-// Every call is synchronous (sendSync) because vBook extensions call fetch() synchronously; main checks the sender.
+// Every call is synchronous (sendSync) because extensions call fetch() synchronously; main checks the sender.
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');

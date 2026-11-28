@@ -108,7 +108,7 @@ def build_book(db: LibraryDB, root: Path, collection_id: str, options: dict[str,
 
 
 def default_filename(book: ExportBook, fmt: str) -> str:
-    """'<title>_<source>.<ext>' like vBook ('Chào Mừng Cậu Đến Trường Iruma-Kun_TruyenQQ.epub')."""
+    """'<title>_<source>.<ext>' ('Chào Mừng Cậu Đến Trường Iruma-Kun_TruyenQQ.epub')."""
     stem = book.title
     if book.source_name:
         stem = f"{stem}_{book.source_name}"

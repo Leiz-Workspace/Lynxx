@@ -110,7 +110,7 @@ class LibraryBookTests(unittest.TestCase):
         self.assertIn("lynxx-lib://lib/collections/", read["html"])
         self.assertEqual(books.collection_detail(self.db, self.root, cid)["chapters"][0]["title"], "Chương 1: Mở đầu")
 
-    def test_epub_exports_follow_the_vbook_layout(self) -> None:
+    def test_epub_exports_follow_the_reference_layout(self) -> None:
         cid, _ch = self.novel()
         for fmt in ("epub2", "epub3", "kepub"):
             out = Path(self.tmp.name) / f"out-{fmt}.epub"

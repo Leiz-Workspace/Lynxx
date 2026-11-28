@@ -1,5 +1,5 @@
-// Lynxx plugin host (Node / Electron main): reading and validating vBook-format extension folders.
-// A package is plugin.json + optional icon.png + src/*.js (top level of src/ only), as vBook installs it.
+// Lynxx plugin host (Node / Electron main): reading and validating extension folders.
+// A package is plugin.json + optional icon.png + src/*.js (top level of src/ only).
 'use strict';
 
 const fs = require('fs');
@@ -98,10 +98,13 @@ function capabilities(manifest, files) {
   const has = (key) => Boolean(manifest.script[key] && files[manifest.script[key]]);
   const type = manifest.metadata.type;
   const content = CONTENT_TYPES.has(type);
+  // Graphics (drawing an image again, mostly to put back pages a site scrambles as DRM) is not part of Lynxx's runtime: such an
+  // extension would install and list books but never show their pages
+  const graphics = Object.values(files || {}).some((src) => /\bGraphics\s*\./.test(String(src)));
   return {
-    content,
+    content, graphics,
     home: has('home'), genre: has('genre'), search: has('search'), detail: has('detail'), page: has('page'), toc: has('toc'), chap: has('chap'),
-    downloadable: content && has('detail') && has('toc') && has('chap') && !manifest.metadata.encrypt,
+    downloadable: content && !graphics && has('detail') && has('toc') && has('chap') && !manifest.metadata.encrypt,
     kind: type === 'comic' ? 'comic' : 'novel',
   };
 }

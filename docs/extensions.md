@@ -1,10 +1,10 @@
-# Extension định dạng vBook trong Lynxx
+# Extension trong Lynxx
 
 Tài liệu tham chiếu cho người viết extension (tiếng Anh, giống reference của skill `new-site-extension`). Công cụ thử: `node app/plugin/cli.js <thư mục> check | detail | toc | chap | search | pack`.
 
 
-Lynxx's runtime (`app/plugin/runtime.js`, `html.js`, `cryptojs.js`) follows the behaviour of vBook's Rhino + Jsoup
-runtime. Anything not listed here is unsupported in Lynxx.
+Lynxx's runtime (`app/plugin/runtime.js`, `html.js`, `cryptojs.js`) follows the behaviour of the Rhino + Jsoup
+runtime the extensions were written for. Anything not listed here is unsupported in Lynxx.
 
 ## Package
 
@@ -34,7 +34,7 @@ src/*.js         scripts, top level of src/ only
 - `type`: `comic`, `novel` (`chinese_novel` = novel). Lynxx does not run `tts`, `translate`, `audio`, `video`, `ai`.
 - `regexp` must match the **whole** book URL (tried with and without `http(s)://` and the trailing `/`).
 - `version`: integer; bump it for every published change.
-- `encrypt: true` packages cannot run in Lynxx (the vBook key derivation is private): never produce them.
+- `encrypt: true` packages cannot run in Lynxx (their key derivation is private): never produce them.
 - `config` keys are injected into every script as **string constants** (`DOMAIN`). The user edits them in Lynxx
   ("Cấu hình"). Never declare a variable with the same name; read it inside `try { if (DOMAIN) … } catch (e) {}`.
 

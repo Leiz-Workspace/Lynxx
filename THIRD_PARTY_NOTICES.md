@@ -15,5 +15,5 @@ its own license). electron-builder and the other build tools are not part of the
 
 ## Extensions
 
-vBook-format extensions are not shipped with Lynxx: users install them from sources they choose. Their scripts and the
+Extensions are not shipped with Lynxx: users install them from sources they choose. Their scripts and the
 content of the sites they read are under the terms of their authors and of those sites.

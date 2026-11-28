@@ -1,4 +1,4 @@
-// Lynxx plugin host: high-level operations over a script runner, with vBook's result conventions normalized
+// Lynxx plugin host: high-level operations over a script runner, with the extension result conventions normalized
 // (relative links joined with host/source, items without a name dropped, duplicates removed, HTML descriptions
 // flattened, page.js + toc.js combined, comic image objects with fallback / referrerpolicy).
 // runner(entry, args) -> Promise<{ok, data, next} | {ok: false, error}>; works in Node and Electron main.
@@ -48,7 +48,7 @@ function htmlToText(html) {
 }
 
 function splitFragmentOptions(url) {
-  // vBook: "<url>#referrerpolicy=no-referrer&script=cover.js" — the fragment is never sent
+  // "<url>#referrerpolicy=no-referrer&script=cover.js" — the fragment is never sent
   const s = String(url ?? '');
   const i = s.indexOf('#');
   if (i < 0) return { url: s, referrerPolicy: '', script: '' };
@@ -185,7 +185,7 @@ function createService({ runner, manifest, capabilities }) {
       return { kind: 'novel', html: typeof r.data === 'string' ? r.data : String(r.data ?? ''), title: r.next ? String(r.next) : '' };
     },
     async image(script, link) {
-      // a per-image script returns the decoded image as bare base64 (vBook "image.js")
+      // a per-image script returns the decoded image as bare base64 ("image.js")
       const r = await runner(script, [String(link)]);
       if (r && typeof r.raw === 'string') return r.raw;
       if (!r || !r.ok || typeof r.data !== 'string') throw new Error(r && r.error ? r.error : 'image script failed');

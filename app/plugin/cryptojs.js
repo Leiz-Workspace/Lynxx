@@ -1,9 +1,9 @@
-// Lynxx plugin runtime: a CryptoJS 4.2-compatible facade for vBook extensions (`load('crypto.js')` always means the
-// bundled CryptoJS in vBook). The data model (WordArray, CipherParams, encoders, OpenSSL "Salted__" format, EvpKDF) is
+// Lynxx plugin runtime: a CryptoJS 4.2-compatible facade for extensions (`load('crypto.js')` always means the
+// bundled CryptoJS). The data model (WordArray, CipherParams, encoders, OpenSSL "Salted__" format, EvpKDF) is
 // implemented here; the primitives (hashes, HMAC, PBKDF2, block ciphers) are delegated to the synchronous host, which
 // uses Node's crypto module. Covered: MD5 SHA1 SHA224 SHA256 SHA384 SHA512 SHA3 RIPEMD160, Hmac*, PBKDF2, EvpKDF,
 // AES / DES / TripleDES with CBC ECB CTR CFB OFB and Pkcs7 / NoPadding / ZeroPadding / Iso10126 / AnsiX923, plus the
-// vBook additions AES.encryptGcm / decryptGcm.
+// the extension API's additions AES.encryptGcm / decryptGcm.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.LynxxCryptoJS = factory();

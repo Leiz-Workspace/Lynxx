@@ -1,4 +1,4 @@
-// Lynxx main process: IPC for extensions (vBook format), book downloads, the collection library, the reader and exports.
+// Lynxx main process: IPC for extensions, book downloads, the collection library, the reader and exports.
 // Kept out of main.js; main passes its helpers in (handle = trusted-sender IPC, sidecar, dialogs, confirmations).
 'use strict';
 
@@ -123,22 +123,22 @@ function setupReader(ctx) {
     if (r.canceled || !r.filePaths[0]) return null;
     if (!fs.existsSync(path.join(r.filePaths[0], 'plugin.json'))) throw new Error('thư mục không có plugin.json');
     const ok = await confirm(`Cài extension từ thư mục ${path.basename(r.filePaths[0])}?`,
-      'Extension vBook là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy; bạn chịu trách nhiệm về quyền tải nội dung từ website đó.');
+      'Extension là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy; bạn chịu trách nhiệm về quyền tải nội dung từ website đó.');
     if (!ok) return null;
     return host.installFromDir(r.filePaths[0], { origin: 'folder' });
   });
   handle('plugins:installZip', async () => {
-    const r = await dialog.showOpenDialog(getWindow(), { title: 'Chọn plugin.zip', properties: ['openFile'], filters: [{ name: 'Extension vBook', extensions: ['zip'] }] });
+    const r = await dialog.showOpenDialog(getWindow(), { title: 'Chọn plugin.zip', properties: ['openFile'], filters: [{ name: 'Extension (plugin.zip)', extensions: ['zip'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
     const ok = await confirm(`Cài extension từ ${path.basename(r.filePaths[0])}?`,
-      'Extension vBook là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy; bạn chịu trách nhiệm về quyền tải nội dung từ website đó.');
+      'Extension là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy; bạn chịu trách nhiệm về quyền tải nội dung từ website đó.');
     if (!ok) return null;
     return host.installFromZip(r.filePaths[0], { origin: 'zip' });
   });
   handle('plugins:installUrl', async (_e, url, repository) => {
     const target = str(url);
     if (!/^https?:\/\//i.test(target)) throw new Error('link phải bắt đầu bằng http(s)://');
-    const ok = await confirm('Cài extension từ link này?', `${target}\n\nExtension vBook là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy.`);
+    const ok = await confirm('Cài extension từ link này?', `${target}\n\nExtension là JavaScript chạy trong sandbox của Lynxx và gửi request tới website của nó thay bạn. Chỉ cài từ nguồn bạn tin cậy.`);
     if (!ok) return null;
     return host.installFromUrl(target, { repository: str(repository) });
   });

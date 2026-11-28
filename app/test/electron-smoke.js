@@ -1,6 +1,6 @@
 // Electron smoke test of the extension host, sandbox bridge and export helpers (dev only, needs a display):
 //   npx --prefix app electron app/test/electron-smoke.js [--offline]
-// Installs a small vBook extension into a scratch profile, runs its scripts in the real sandbox (sync bridge: HTTP to
+// Installs a small extension into a scratch profile, runs its scripts in the real sandbox (sync bridge: HTTP to
 // example.com unless --offline, sleep, storage, cookies, crypto), then checks printToPDF, the WebP -> JPEG transcoder and
 // the lynxx-lib:// protocol. Exit code 0 = everything passed.
 'use strict';

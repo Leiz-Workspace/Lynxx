@@ -1,7 +1,7 @@
 // Lynxx desktop: Electron main process
 // - spawns the Python sidecar (python -m lynxx.server, or the bundled lynxx-core) for the library, file conversion,
 //   reader data and exports (JSON-RPC over stdio)
-// - runs vBook-format extensions in hidden Chromium sandboxes and the book download jobs (app/plugin)
+// - runs site extensions in hidden Chromium sandboxes and the book download jobs (app/plugin)
 // - owns settings (userData/settings.json), the cover thumbnail cache (lynxx-thumb://), appearance and the app icon
 'use strict';
 
