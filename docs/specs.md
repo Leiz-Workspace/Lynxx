@@ -1,6 +1,6 @@
 # Lynxx — Đặc tả (truyện, sách, extension vBook)
 
-Đặc tả của booru downloader kế thừa: [legacy-booru-specs.md](legacy-booru-specs.md).
+Lynxx bắt nguồn từ Lustra (một app tải booru); từ 2.1.0 phần booru đã được gỡ hẳn, Lynxx chỉ còn truyện và sách.
 
 ## 1. Phạm vi
 
@@ -15,15 +15,17 @@ Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 
 | Tầng | File | Vai trò |
 |---|---|---|
+| Renderer | `app/renderer/app.js` | Khung app: điều hướng, theme / icon / hình nền, Cài đặt, Nhật ký, trạng thái lõi |
 | Renderer | `app/renderer/books.js`, `index.html`, `styles.css` | Trang Thư viện, Nguồn truyện, Đọc truyện, job tải, hộp thoại Xuất |
-| Preload | `app/preload.js` | `window.lynxx.plugins / books / shelf / reader` |
+| Preload | `app/preload.js` | `window.lynxx.settings / plugins / books / shelf / reader / app`, `rpc` chỉ cho `app.info`, `formats.supported` |
+| Main | `app/main.js` | Settings, khởi động sidecar (lõi đóng gói `lynxx-core` hoặc `python -m lynxx.server`), ảnh bìa `lynxx-thumb://`, proxy, icon / launcher, thoát app khi còn job, self-test |
 | Main | `app/plugin/ipc.js` | IPC, protocol `lynxx-lib://`, luồng xuất (transcode ảnh, printToPDF) |
 | Main | `app/plugin/host.js` | Extension đã cài, pool sandbox, cầu nối đồng bộ |
 | Main | `app/plugin/http.js` | HTTP cho extension và tải trang (cookie, chặn IP nội bộ, nhịp theo host, Retry-After, resume) |
 | Main | `app/plugin/downloader.js` | Job tải truyện (`BookJobs`) |
 | Sandbox | `app/plugin/sandbox.html`, `sandbox.js`, `sandbox-preload.js` | Renderer ẩn chạy script extension |
 | Runtime | `app/plugin/html.js`, `runtime.js`, `cryptojs.js`, `service.js` | Parser HTML + selector Jsoup, API vBook, CryptoJS, chuẩn hoá kết quả |
-| Sidecar | `lynxx/server.py` | JSON-RPC: thư viện, đọc, xuất, giải nén extension |
+| Sidecar | `lynxx/server.py` | JSON-RPC: thư viện, đọc, xuất, giải nén extension (chỉ thư viện chuẩn của Python) |
 | Thư viện | `lynxx/library/{db,books,importer}.py` | SQLite v2, collection/chapter/page, nhập file |
 | Định dạng | `lynxx/formats/*.py` | Bộ chuyển đổi → `Document` |
 | Xuất | `lynxx/export/*.py` | EPUB/KEPUB, CBZ, PDF ảnh, HTML để in PDF |
@@ -124,9 +126,9 @@ JPEG nhúng nguyên, PNG nhúng nguyên hoặc giải mã (alpha → SMask), Web
 chương. PDF truyện chữ: HTML một file → `printToPDF` (A5, outline từ heading, link mục lục). Tên mặc định
 `<tên truyện>_<nguồn>.<đuôi>`. Mỗi lần xuất ghi vào bảng `exports`; "Cập nhật" tạo lại file với tuỳ chọn cũ.
 
-## 8. RPC sidecar mới
+## 8. RPC sidecar
 
-`formats.supported`, `library.collections`, `library.collection`, `library.collection.delete`,
+`app.info`, `app.shutdown`, `source.list`, `source.policy`, `library.import`, `formats.supported`, `library.collections`, `library.collection`, `library.collection.delete`,
 `library.collection.remote`, `library.book.upsert`, `library.book.cover`, `library.chapter.commitImages`,
 `library.chapter.commitText`, `library.chapter.state`, `reader.chapter`, `reader.progress.get/set` (thêm `direction`),
 `export.suggest`, `export.build` (lỗi -32010 = cần in HTML, -32011 = cần chuyển ảnh), `export.bundle`, `export.record`,

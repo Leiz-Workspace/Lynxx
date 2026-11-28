@@ -9,11 +9,9 @@ on:
     paths:
       - .github/workflows/**
       - 'lynxx/**'
-      - 'extensions/**'
       - 'tools/**'
-      - 'app/icon-utils.js'
-      - 'app/plugin/**'
-      - 'app/test/**'
+      - 'app/**'
+      - '!app/package-lock.json'
       - 'pyproject.toml'
       - 'requirements.txt'
       - '!lynxx/vcs/version.py'
@@ -54,24 +52,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8
           pip install -r requirements.txt
-          pip install 'anthropic>=2.9'  # optional AI extra: its SDK wire test (local server, no key) runs too
-      - name: Run tests
-        continue-on-error: False
+      - name: Lint
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 . --count --exit-zero --max-line-length=140 --statistics
-          python -m unittest lynxx/tests/tests.py
-          python -m unittest lynxx.tests.test_lynxx lynxx.tests.test_gender lynxx.tests.test_security lynxx.tests.test_batch_b lynxx.tests.test_batch_c lynxx.tests.test_batch_c_tags lynxx.tests.test_batch_d_core lynxx.tests.test_batch_d_search lynxx.tests.test_batch_d_app lynxx.tests.test_extgen lynxx.tests.test_dlindex lynxx.tests.test_dlindex_tools lynxx.tests.test_model_server lynxx.tests.test_media_verify lynxx.tests.test_catalog_trust lynxx.tests.test_aigen_eval lynxx.tests.test_gender_eval lynxx.tests.test_tag_sources lynxx.tests.test_search_kinds lynxx.tests.test_type_tag_list lynxx.tests.test_gelbooru_ext lynxx.tests.test_e621_ext lynxx.tests.test_pick_and_quality lynxx.tests.test_rule34xyz_ext
-          node app/test/icon-utils.test.js
-      - name: Lynxx library, formats and exports
-        run: |
-          python -m unittest lynxx.tests.test_foundation lynxx.tests.test_library_import lynxx.tests.test_epub_reader lynxx.tests.test_policy_uncen lynxx.tests.test_source_adapters lynxx.tests.test_nhentai_api lynxx.tests.test_library_books lynxx.tests.test_formats_text lynxx.tests.test_formats_office lynxx.tests.test_formats_ole lynxx.tests.test_formats_legacy
-      - name: Extension runtime (vBook format)
+      - name: Library, file formats, reader and exports
+        run: python -m unittest discover -s lynxx/tests -t . -v
+      - name: Extension runtime (vBook format) and app scripts
         shell: bash
         run: |
+          node app/test/icon-utils.test.js
           node app/test/plugin-runtime.test.js
           node app/test/book-jobs.test.js
-          for f in app/plugin/*.js app/renderer/*.js app/main.js app/preload.js; do node --check "$f"; done
+          for f in app/plugin/*.js app/renderer/*.js app/main.js app/preload.js app/icon-utils.js; do node --check "$f"; done
 
   # the one check the ruleset of develop, staging and production requires: every job of the matrix passed
   passed:

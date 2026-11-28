@@ -1,8 +1,7 @@
 # File description: CI of Lynxx on the Home Server's self-hosted Forgejo (the platform's pull mirror of the GitHub
 # repository). GitHub stays the source of truth and keeps its own Tests workflow (the ruleset's required check);
-# this run is the platform's view of every push to develop, staging and production: ruff, the offline unit tests
-# (the list of .github/workflows/run-tests.yml, so the two never drift apart) and the Node icon test, on Python 3.11
-# (the oldest supported version) in Debian bookworm.
+# this run is the platform's view of every push to develop, staging and production: ruff, the offline unit tests of
+# lynxx/tests and the Node tests of the app, on Python 3.11 (the oldest supported version) in Debian bookworm.
 # Runs on the Forgejo runner label "docker" only; GitHub workflows (.github/) never run on Forgejo.
 name: ci
 
@@ -40,22 +39,22 @@ jobs:
       - name: Python environment
         run: |
           set -eu
-          # python3-tk and tkinterdnd2: the legacy tests (lynxx/tests/tests.py) import the Tk GUI modules, as on GitHub
-          apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 python3-venv python3-tk >/dev/null
+          apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 python3-venv >/dev/null
           python3 -m venv /tmp/venv
           /tmp/venv/bin/python -m pip install -q --upgrade pip
-          /tmp/venv/bin/python -m pip install -q -r requirements.txt 'anthropic>=2.9' 'ruff~=0.16.0'
+          /tmp/venv/bin/python -m pip install -q -r requirements.txt 'ruff~=0.16.0'
           /tmp/venv/bin/python --version
 
+      # errors only (syntax, undefined names, unused imports), as the GitHub workflow checks with flake8: the quote style of
+      # pyproject.toml's ruff rules is not enforced
       - name: Lint
-        run: /tmp/venv/bin/ruff check lynxx tools extensions
+        run: /tmp/venv/bin/ruff check --select E9,F lynxx tools
 
       - name: Unit tests
         run: |
           set -eu
           export LYNXX_DATA_DIR="$(mktemp -d)"
-          modules="$(grep -oE 'lynxx\.tests\.test_[a-z_0-9]+' .github/workflows/run-tests.yml | sort -u | tr '\n' ' ')"
-          # shellcheck disable=SC2086
-          /tmp/venv/bin/python -W ignore -m unittest ${modules}
-          /tmp/venv/bin/python -W ignore -m unittest lynxx/tests/tests.py
+          /tmp/venv/bin/python -W ignore -m unittest discover -s lynxx/tests -t .
           node app/test/icon-utils.test.js
+          node app/test/plugin-runtime.test.js
+          node app/test/book-jobs.test.js

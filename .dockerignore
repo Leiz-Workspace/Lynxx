@@ -1,9 +1,0 @@
-# build context of tools/model_server/Dockerfile (docker build -f tools/model_server/Dockerfile .): the lynxx package only
-*
-!lynxx/
-!LICENSE
-!THIRD_PARTY_NOTICES.md
-lynxx/tests/
-lynxx/release/
-**/__pycache__
-**/*.pyc

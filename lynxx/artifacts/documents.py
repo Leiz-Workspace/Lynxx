@@ -7,7 +7,6 @@ import html
 import mimetypes
 import os
 import posixpath
-import re
 import struct
 import zipfile
 from pathlib import Path

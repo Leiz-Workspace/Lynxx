@@ -42,13 +42,25 @@
   (thoát app khi còn cửa sổ sandbox, timeout không ảnh hưởng script kế tiếp, renderer không tự chọn đường dẫn xuất,
   trình duyệt ẩn chỉ do script mở nó điều khiển, proxy cho session extension, ảnh webtoon dài khi xuất PDF…).
 - **Dọn booru (mục 5, một phần)**: README, `docs/specs.md`, mô tả `app/package.json` / `pyproject.toml`, CI chạy test
-  Lynxx. README và đặc tả booru cũ chuyển thành `docs/legacy-booru-*.md`.
+  Lynxx.
+
+### Bản 2.1.0 (2026-11-28)
+- **Gỡ hẳn hệ booru (mục 5)**: trang Tìm kiếm / Đã tải / Tags A–Z / Extensions booru và các mục Cài đặt booru; 16
+  extension trong `extensions/`, danh sách tag `2tags/`, lõi tải booru (CLI, downloader, tag DB, lọc giới tính, model
+  server, index tải, catalog có chữ ký, trình tạo extension AI); main.js còn ~1.100 dòng, app.js ~420 dòng. Lõi Python chỉ
+  còn thư viện chuẩn: frozen core 33,5 MiB (trước 78,5 MiB). Settings cũ được dọn khi mở (settings v4). Skill
+  `new-site-extension` bỏ chế độ booru.
+- **Màu theo icon**: theme mặc định Abyss (navy + cyan), Paper / OLED nhấn cyan; theme cam cũ tự chuyển sang Abyss.
+- **Release như Lustra**: workflow Release build 6 nền tảng (staging → rc, production → release dùng lại file của rc);
+  bỏ model server và image Docker. Sửa lỗi chặn build: `app/build/after-pack.js` bị sót khi fork; icon `*-64.png` thực ra
+  1024 px.
+- **Sửa lỗi**: nhiều luồng sidecar cùng mở database thư viện mới (hoặc v1) → `duplicate column` / `database is locked`;
+  renderer có thể gọi hook của books.js trước khi books.js chạy (thư viện trống lúc mở app).
+- **Self-test mới cho bản đóng gói**: sidecar, RPC được phép / bị chặn, các trang và theme, nhập → đọc → xuất EPUB,
+  extension trong sandbox đóng gói, hỏi lại khi thoát lúc còn lượt tải.
 
 ## Chưa làm / còn lại
 
-- **Gỡ hẳn hệ booru**: thư mục `extensions/` (16 extension booru) vẫn còn vì `tools/build_core.py`, `lynxx/aigen` và
-  nhiều test cũ (`test_search_kinds`, `test_catalog_trust`, `test_batch_d_app`, `test_*_ext`) phụ thuộc vào nó; các
-  trang Booru vẫn hoạt động trong app. Nên làm thành một đợt riêng, có môi trường chạy đủ test cũ.
 - **nhentai live (mục 6)**: vẫn `expired_review` trong policy adapter dựng sẵn. Extension vBook do người dùng cài đi
   theo đường extension (người dùng xác nhận khi cài, chịu trách nhiệm về quyền tải).
 

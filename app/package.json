@@ -2,7 +2,7 @@
   "name": "lynxx-desktop",
   "productName": "Lynxx",
   "desktopName": "lynxx.desktop",
-  "version": "2.0.14",
+  "version": "2.1.0",
   "description": "Lynxx desktop: download, read and export comics, novels and books (vBook-format extensions, local EPUB/PDF/MOBI/…)",
   "homepage": "https://github.com/Leiz-Workspace/Lynxx",
   "author": "Lynxx contributors",
@@ -12,7 +12,7 @@
   "scripts": {
     "start": "electron .",
     "start:debug": "electron . --enable-logging --lynxx-devtools",
-    "check": "node --check main.js && node --check preload.js && node --check renderer/app.js && node --check renderer/books.js && node --check renderer/guide.js && node --check renderer/mock.js && node --check tag-schedule.js && node test/tag-schedule.test.js && node --check site-verify.js && node test/site-verify.test.js && for f in plugin/*.js; do node --check \"$f\" || exit 1; done && node test/plugin-runtime.test.js && node test/book-jobs.test.js",
+    "check": "node --check main.js && node --check preload.js && node --check icon-utils.js && node --check renderer/app.js && node --check renderer/books.js && node --check renderer/mock.js && for f in plugin/*.js; do node --check \"$f\" || exit 1; done && node test/icon-utils.test.js && node test/plugin-runtime.test.js && node test/book-jobs.test.js",
     "check:core": "node -e \"if (!require('fs').existsSync('build/core/lynxx-core')) { console.error('frozen core missing: run python tools/build_core.py in the repo root first'); process.exit(1); }\"",
     "dist": "npm run check:core && electron-builder --publish never",
     "dist:dir": "npm run check:core && electron-builder --dir --publish never"
@@ -30,8 +30,6 @@
       "main.js",
       "preload.js",
       "icon-utils.js",
-      "tag-schedule.js",
-      "site-verify.js",
       "package.json",
       "plugin/**/*",
       "renderer/**/*",
@@ -114,7 +112,7 @@
       "identity": null
     },
     "deb": {
-      "packageCategory": "net"
+      "packageCategory": "text"
     },
     "publish": null
   },

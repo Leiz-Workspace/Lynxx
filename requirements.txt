@@ -1,6 +1,2 @@
-beautifulsoup4>=4.9.3
-fake-useragent>=2.0.3
-PySocks>=1.7.1
-requests>=2.31.0
-tkinterdnd2>=0.6
-yarl>=1.25
+# The Lynxx core (lynxx/) uses the Python standard library only.
+# Building the frozen core of the desktop app needs PyInstaller: python -m pip install 'pyinstaller>=6.21'

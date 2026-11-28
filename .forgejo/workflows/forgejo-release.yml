@@ -1,15 +1,13 @@
 # File description: Forgejo release of Lynxx on the Home Server's self-hosted Forgejo, in parallel with the GitHub
 # release pipeline (.github/workflows/release.yml) while GitHub stays the source of truth: the v* tag that the GitHub
 # release creates reaches Forgejo through the pull mirror, and this workflow builds again and publishes to Forgejo.
-# - linux: the desktop app (Electron + the frozen Python core of tools/build_core.py) as .deb and .AppImage for x64 and
-#   the standalone model server (CPU), built natively in a Debian container; the packaged app runs its self-test under
-#   xvfb. Generic package lynxx/<version>/ with SHA256SUMS-linux and its minisign signature, Debian registry
-#   (distribution stable, component main for releases, rc for release candidates), Forgejo Release with the checksums.
-# - image: the model server image (CPU, linux/amd64) <registry>/<owner>/lynxx-model-server:<version>, scanned by Trivy
-#   (fixable CRITICAL findings stop the publish), signed with cosign, CycloneDX SBOM attached; :latest for releases only.
+# - linux: the desktop app (Electron + the frozen Python core of tools/build_core.py) as .deb and .AppImage for x64, built
+#   natively in a Debian container; the packaged app runs its self-test under xvfb. Generic package lynxx/<version>/ with
+#   SHA256SUMS-linux and its minisign signature, Debian registry (distribution stable, component main for releases, rc for
+#   release candidates), Forgejo Release with the checksums.
 # Windows, macOS and Linux arm64 are published on GitHub only: the PyInstaller core is built natively per platform.
 # Forgejo settings: org variables BASE_IMAGES, PACKAGES_USER; repository secrets PACKAGES_TOKEN (bootstrap_forgejo.py
-# --with-release-bot, RELEASE_REPOSITORIES), MINISIGN_SECRET_KEY, COSIGN_PRIVATE_KEY, COSIGN_PASSWORD
+# --with-release-bot, RELEASE_REPOSITORIES), MINISIGN_SECRET_KEY
 # (scripts/signing_keys.py init --repository Lynxx; the public keys are in keys/ of this repository).
 # Runs on the Forgejo runner label "docker" only; GitHub workflows (.github/) never run on Forgejo.
 name: forgejo-release
@@ -20,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Upload the Linux files as a dev package (no Release, no image)
+        description: Upload the Linux files as a dev package (no Release)
         type: boolean
         default: false
 
@@ -32,7 +30,6 @@ env:
   REF_TYPE: ${{ forgejo.ref_type }}
   SHA: ${{ forgejo.sha }}
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
-  IMAGE_NAME: lynxx-model-server
 
 jobs:
   linux:
@@ -85,9 +82,8 @@ jobs:
         run: |
           set -eu
           python3 -m venv /tmp/venv
-          grep -v '^tkinterdnd2' requirements.txt > /tmp/requirements-core.txt
           /tmp/venv/bin/python -m pip install -q --upgrade pip
-          /tmp/venv/bin/python -m pip install -q -r /tmp/requirements-core.txt 'pyinstaller>=6.21' 'anthropic>=2.9'
+          /tmp/venv/bin/python -m pip install -q -r requirements.txt 'pyinstaller>=6.21'
           /tmp/venv/bin/python tools/build_core.py
 
       - name: Build the app (.deb, .AppImage)
@@ -109,8 +105,9 @@ jobs:
           bad="$(for deb in app/dist/*.deb; do dpkg-deb -c "${deb}"; done | awk '{m=$1} substr(m,8,1)!="r" || (substr(m,1,1)=="d" && substr(m,10,1)!="x") || substr(m,6,1)=="w" || substr(m,9,1)=="w" {print}')"
           if [ -n "${bad}" ]; then echo "the .deb has entries with wrong modes"; echo "${bad}" | head -20; exit 1; fi
 
-      # The app's own self-test (quick: no network): frozen core, sidecar contract, settings, extension generator,
-      # index tools. Bounded by python, xvfb gives Electron a display.
+      # The app's own self-test (quick: no screenshots, no network): frozen core, sidecar contract, pages and theme,
+      # import / reader / EPUB export, an extension in the packaged sandbox, the quit guard. Bounded by python, xvfb gives
+      # Electron a display.
       - name: Self-test of the packaged app
         env:
           LYNXX_SELFTEST_QUICK: "1"
@@ -121,14 +118,11 @@ jobs:
             xvfb-run -a app/dist/linux-unpacked/lynxx --no-sandbox
           python3 tools/check_selftest.py "${LYNXX_SELFTEST_DIR}/report.json"
 
-      - name: Build the standalone model server (CPU)
-        run: /tmp/venv/bin/python tools/build_model_server.py --variant cpu --out dist-model-server
-
       - name: Checksums
         run: |
           set -eu
           mkdir -p dist
-          cp app/dist/lynxx-*.deb app/dist/lynxx-*.AppImage dist-model-server/lynxx-model-server-*.tar.gz dist/
+          cp app/dist/lynxx-*.deb app/dist/lynxx-*.AppImage dist/
           (cd dist && sha256sum -- * > SHA256SUMS-linux && cat SHA256SUMS-linux)
 
       - name: Sign the checksums with minisign
@@ -182,7 +176,7 @@ jobs:
           if [ -z "${release_id}" ]; then
             prerelease=false; case "${APP_VERSION}" in *-*) prerelease=true ;; esac
             # The files are in the generic registry; attaching them again would store every file twice.
-            body="Linux x64 files built by Forgejo Actions from ${SHA}: the desktop app (.deb, .AppImage) and the standalone model server (CPU). Download them from the generic package ${SERVER_URL}/${OWNER}/-/packages/generic/lynxx/${APP_VERSION} (Debian/Ubuntu: the Forgejo Debian registry, component main for releases, rc for release candidates); the model server image is ${IMAGE_NAME}:${APP_VERSION} in this registry. Windows, macOS and Linux arm64: GitHub Releases. Verify SHA256SUMS-linux with its .minisig and keys/minisign.pub of the repository (minisign -Vm SHA256SUMS-linux -p minisign.pub), then the files with sha256sum -c."
+            body="Linux x64 files built by Forgejo Actions from ${SHA}: the desktop app (.deb, .AppImage). Download them from the generic package ${SERVER_URL}/${OWNER}/-/packages/generic/lynxx/${APP_VERSION} (Debian/Ubuntu: the Forgejo Debian registry, component main for releases, rc for release candidates). Windows, macOS and Linux arm64: GitHub Releases. Verify SHA256SUMS-linux with its .minisig and keys/minisign.pub of the repository (minisign -Vm SHA256SUMS-linux -p minisign.pub), then the files with sha256sum -c."
             release_id="$(curl -fsS -H @"${header}" -H 'Content-Type: application/json' \
               -d "{\"tag_name\":\"${REF_NAME}\",\"name\":\"Lynxx ${APP_VERSION}\",\"prerelease\":${prerelease},\"body\":\"${body}\"}" \
               "${api}/releases" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).id))')"
@@ -216,73 +210,3 @@ jobs:
           done
           : > "${header}"
 
-  image:
-    if: ${{ forgejo.ref_type == 'tag' }}
-    runs-on: docker
-    container:
-      image: ${{ vars.BASE_IMAGES }}/docker:29.9.3-cli
-    timeout-minutes: 60
-    steps:
-      # actions/checkout is a JavaScript action; the docker CLI image needs node and git first.
-      - run: apk add --no-cache nodejs git curl
-      - uses: actions/checkout@v4
-
-      - name: Build, scan, sign and push the model server image
-        env:
-          BASE_IMAGES: ${{ vars.BASE_IMAGES }}
-          PACKAGES_USER: ${{ vars.PACKAGES_USER }}
-          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-        run: |
-          set -eu
-          version="${REF_NAME#v}"
-          registry="${SERVER_URL#*://}"; registry="${registry%%/*}"
-          image="${registry}/${OWNER}/${IMAGE_NAME}"
-          printf '%s' "${PACKAGES_TOKEN}" | docker login "${registry}" -u "${PACKAGES_USER}" --password-stdin
-          docker build --pull -f tools/model_server/Dockerfile \
-            --label "org.opencontainers.image.source=${SERVER_URL}/${REPOSITORY}" \
-            --label "org.opencontainers.image.version=${version}" \
-            --label "org.opencontainers.image.licenses=MIT" \
-            -t "${image}:${version}" .
-          # Same order as the platform's scripts/publish-image.sh: the version tag is the candidate; latest follows
-          # only after the scan and the signature, and only for a release (no '-' in the version).
-          docker push -q "${image}:${version}" >/dev/null
-          digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${image}:${version}" | grep -F "${image}@" | head -n 1 | sed 's/.*@//')"
-          reference="${image}@${digest}"
-          registry_ip="$(getent hosts "${registry}" | awk '{print $1; exit}')"
-          trivy() {
-            docker run --rm ${registry_ip:+--add-host "${registry}:${registry_ip}"} -v sdp-trivy-cache:/root/.cache/trivy \
-              -e TRIVY_USERNAME="${PACKAGES_USER}" -e TRIVY_PASSWORD="${PACKAGES_TOKEN}" -e TRIVY_NO_PROGRESS=true \
-              "${BASE_IMAGES}/aquasec/trivy:0.76.1" "$@"
-          }
-          trivy image --quiet --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --format table "${reference}"
-          trivy image --quiet --scanners vuln --ignore-unfixed --severity CRITICAL --exit-code 1 --format json "${reference}" >/dev/null
-          trivy image --quiet --format cyclonedx "${reference}" > sbom.cdx.json
-          apk add --no-cache -q cosign
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY --use-signing-config=false --tlog-upload=false "${reference}"
-          cosign attest --yes --key env://COSIGN_PRIVATE_KEY --use-signing-config=false --tlog-upload=false \
-            --type cyclonedx --predicate sbom.cdx.json "${reference}"
-          case "${version}" in
-            *-*) echo "release candidate: ${image}:latest not moved" ;;
-            *) docker tag "${image}:${version}" "${image}:latest" && docker push -q "${image}:latest" >/dev/null ;;
-          esac
-          docker logout "${registry}"
-          echo "published ${image}:${version} (${digest}), signed"
-
-      - name: Link the image to this repository
-        env:
-          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-        run: |
-          set -eu
-          if [ -n "${SDP_FORGEJO_CA:-}" ]; then export CURL_CA_BUNDLE="${SDP_FORGEJO_CA}"; fi
-          header="$(mktemp)"
-          ( umask 077 && printf 'Authorization: token %s\n' "${PACKAGES_TOKEN}" > "${header}" )
-          code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H @"${header}" \
-            "${SERVER_URL}/api/v1/packages/${OWNER}/container/${IMAGE_NAME}/-/link/${REPOSITORY#*/}" || true)"
-          case "${code}" in
-            2*) echo "linked container/${IMAGE_NAME}" ;;
-            400) echo "container/${IMAGE_NAME} is already linked" ;;
-            *) echo "::warning::linking container/${IMAGE_NAME} returned HTTP ${code}" ;;
-          esac
-          : > "${header}"

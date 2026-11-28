@@ -1,4 +1,0 @@
-# Lynxx: update tag lists every Monday at 04:17 (random minute: do not hit websites at :00 together with everyone else)
-# Install: crontab -l | cat - tools/cron/crontab.example | crontab -     (edit the path first)
-# Log: ~/.local/state/lynxx/update-tags.log
-17 4 * * 1  /home/korosaki-ryukai/Workspace/Lynxx/tools/cron/lynxx-update-tags.sh

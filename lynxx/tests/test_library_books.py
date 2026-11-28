@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import re
+import sqlite3
 import struct
 import tempfile
+import threading
 import unittest
 import zipfile
 import zlib
@@ -220,6 +222,48 @@ class ImportManyTests(unittest.TestCase):
             self.assertEqual(len(ids), 4)
             self.assertEqual(len(books.list_collections(db, root / "lib")), 4)
             db.close()
+
+
+class ConcurrentOpenTests(unittest.TestCase):
+    """The sidecar opens one connection per request thread: a new or v1 database is upgraded once, not by every thread."""
+
+    def open_many(self, path: Path) -> list[BaseException]:
+        errors: list[BaseException] = []
+        barrier = threading.Barrier(8)
+
+        def worker() -> None:
+            try:
+                barrier.wait()
+                LibraryDB(path).close()
+            except BaseException as err:  # noqa: BLE001 - collected and asserted below
+                errors.append(err)
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return errors
+
+    def test_new_database(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for i in range(5):
+                self.assertEqual(self.open_many(Path(directory) / f"db{i}.sqlite"), [])
+
+    def test_v1_database(self) -> None:
+        from lynxx.library.db import _SCHEMA
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "db.sqlite"
+            connection = sqlite3.connect(path)
+            connection.executescript(_SCHEMA)
+            connection.execute("INSERT INTO schema_meta(key, value) VALUES('schema_version', '1')")
+            connection.commit()
+            connection.close()
+            self.assertEqual(self.open_many(path), [])
+            with LibraryDB(path) as db:
+                columns = {r["name"] for r in db.connection.execute("PRAGMA table_info(chapters)")}
+                self.assertIn("error", columns)
+                self.assertEqual(db._schema_version(), 2)
 
 
 class SniffFormatTests(unittest.TestCase):

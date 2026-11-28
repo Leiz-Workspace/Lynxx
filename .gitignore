@@ -2,12 +2,8 @@
 1venv/
 version_info.txt
 *.pyc
-# autoconfig files of the legacy Tk GUI live in project root only (docs/legacy-gui.md: lynxx/auto/settings/config)
-/*.cfg
-/*.json
 *.lnk
 *.exe
-!/setup.cfg
 
 # Lynxx desktop app / tooling
 node_modules/
@@ -15,23 +11,14 @@ node_modules/
 app/out/
 app/dist/
 .lynxx-cache/
-# extension drafts of python -m lynxx.extgen / the new-site-extension skill (reviewed and installed by hand)
+# extension drafts of the new-site-extension skill: tried with app/plugin/cli.js, installed by hand
 .extgen-drafts/
-# tag lists of the catalog extensions: data, kept next to their manifest on the maintainer's machine and put into the catalog
-# zips by tools/build_catalog.py, never committed (docs/plans/ext-tag-jobs.md)
-/extensions/*/*_tags.json
-# release bundles (app: electron-builder, model server: tools/build_model_server.py)
+# release bundles (electron-builder)
 *.AppImage
-/dist-model-server/
-# gender model files (downloaded at run time into the data folder, never committed)
-*.onnx
-/models/
-# secrets: catalog signing keys (tools/sign_catalog.py), local env files
+# secrets: signing keys, local env files
 *.pem
 *.key
 signing-key*
-# the maintainer's own notes on the official catalog (renewing, re-signing): kept on that machine only
-/catalog-guide.txt
 .env.*
 !.env.example
 # tools and OS

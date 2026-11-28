@@ -627,7 +627,7 @@
   function readerCss() {
     const cs = getComputedStyle(document.documentElement);
     const v = (n, d) => (cs.getPropertyValue(n).trim() || d);
-    return `html{background:${v('--panel-solid', '#1a1512')};color-scheme:${document.documentElement.dataset.theme === 'paper' ? 'light' : 'dark'};}
+    return `html{background:${v('--panel-solid', '#0d1b21')};color-scheme:${document.documentElement.dataset.theme === 'paper' ? 'light' : 'dark'};}
       html,body{margin:0;color:${v('--text', '#eee')};}
       body{font-family:"Noto Serif","Source Serif 4",Georgia,serif;font-size:${rd.font}px;line-height:1.7;padding:24px max(24px,calc((100vw - 760px)/2)) 80px;}
       h1,h2,h3{line-height:1.3} h1.ch{font-size:1.5em;text-align:center;margin:.2em 0 1.2em}

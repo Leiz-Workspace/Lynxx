@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,10 @@ _MIGRATION_V2 = (
 READER_MODES = {"vertical", "horizontal", "paged"}
 READER_DIRECTIONS = {"ltr", "rtl"}
 
+# the sidecar answers requests on several threads, each opening its own connection; switching a new file to WAL (an exclusive
+# lock, refused at once instead of waited for) and upgrading the schema are done by one thread at a time
+_OPEN_LOCK = threading.Lock()
+
 
 class LibraryDB:
     """Small, transaction-oriented database facade used by sidecar services."""
@@ -95,10 +100,15 @@ class LibraryDB:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA foreign_keys = ON")
-        self.connection.execute("PRAGMA journal_mode = WAL")
-        self.connection.execute("PRAGMA busy_timeout = 10000")
-        self.migrate()
+        try:
+            with _OPEN_LOCK:
+                self.connection.execute("PRAGMA foreign_keys = ON")
+                self.connection.execute("PRAGMA busy_timeout = 10000")
+                self.connection.execute("PRAGMA journal_mode = WAL")
+                self.migrate()
+        except BaseException:
+            self.connection.close()
+            raise
 
     def __enter__(self) -> "LibraryDB":
         return self
@@ -106,14 +116,21 @@ class LibraryDB:
     def __exit__(self, *_exc: object) -> None:
         self.close()
 
+    def _schema_version(self) -> int:
+        row = self.connection.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()
+        version = int(row["value"]) if row else 0
+        if version > SCHEMA_VERSION:
+            raise RuntimeError("Lynxx library database is newer than this app")
+        return version
+
     def migrate(self) -> None:
-        with self.connection:
-            self.connection.executescript(_SCHEMA)
-            row = self.connection.execute("SELECT value FROM schema_meta WHERE key = 'schema_version'").fetchone()
-            version = int(row["value"]) if row else 0
-            if version > SCHEMA_VERSION:
-                raise RuntimeError("Lynxx library database is newer than this app")
-            if version < 2:
+        self.connection.executescript(_SCHEMA)
+        if self._schema_version() == SCHEMA_VERSION:
+            return
+        # another process (the CLI) may upgrade the same file: the upgrade runs under the write lock and looks again
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            if self._schema_version() < 2:
                 columns = {
                     table: {r["name"] for r in self.connection.execute(f"PRAGMA table_info({table})")}
                     for table in ("collections", "chapters", "reader_progress")
@@ -128,6 +145,10 @@ class LibraryDB:
                 "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (str(SCHEMA_VERSION),),
             )
+            self.connection.execute("COMMIT")
+        except BaseException:
+            self.connection.execute("ROLLBACK")
+            raise
 
     # ------------------------------------------------------------------ rows
 

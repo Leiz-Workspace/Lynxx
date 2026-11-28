@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="vi" data-theme="ember">
+<html lang="vi" data-theme="abyss">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' file: data: blob: lynxx-thumb: lynxx-lib:; media-src 'self' file: lynxx-thumb:; frame-src 'self' file: about:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'">
+        content="default-src 'self'; img-src 'self' file: data: blob: lynxx-thumb: lynxx-lib:; media-src 'self' file: lynxx-lib:; frame-src 'self' file: about:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'">
   <title>Lynxx</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -26,11 +26,6 @@
         <button data-page="sources"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Nguồn truyện</span></button>
         <button data-page="reader"><svg viewBox="0 0 24 24"><path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Đọc truyện</span></button>
         <button data-page="downloads"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16"/></svg><span>Tải xuống</span><b class="badge" id="badge-jobs" hidden>0</b></button>
-        <div class="nav-sep">Booru</div>
-        <button data-page="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Tìm kiếm</span></button>
-        <button data-page="library"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg><span>Đã tải</span></button>
-        <button data-page="tags"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span>Tags A–Z</span></button>
-        <button data-page="extensions"><svg viewBox="0 0 24 24"><path d="M9 3h6v4a2 2 0 1 0 4 0h2v6h-2a2 2 0 1 0 0 4h2v4H3v-6h2a2 2 0 1 0 0-4H3V7h6z"/></svg><span>Extensions</span><span class="badge" id="badge-ext" hidden title="Extension có bản mới trong catalog"></span></button>
         <button data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Cài đặt</span></button>
         <button data-page="log"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg><span>Nhật ký</span></button>
       </nav>
@@ -40,7 +35,6 @@
     </aside>
 
     <main class="content">
-      <!-- SEARCH -->
       <!-- SHELF: collections (extension downloads, imported books) -->
       <section class="page active" id="page-shelf">
         <div class="page-head"><h1>Thư viện</h1><span class="row">
@@ -96,140 +90,11 @@
         </div>
       </section>
 
-      <section class="page" id="page-search">
-        <div class="searchbar glass">
-          <div class="module-picker" id="module-picker">
-            <button class="module-btn" id="module-btn" aria-haspopup="listbox"><span class="mod-abbr" id="module-abbr">rx</span><span id="module-name">Rule34</span><svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg></button>
-            <div class="menu" id="module-menu" role="listbox" hidden></div>
-          </div>
-          <div class="tag-input" id="tag-input">
-            <div class="chips" id="chips"></div>
-            <input id="tag-text" type="text" autocomplete="off" spellcheck="false" placeholder="Nhập tag… (Tab/Enter để thêm, gõ - để loại trừ)">
-            <div class="ac" id="ac" hidden></div>
-          </div>
-          <div class="search-actions">
-          <button class="btn icon-btn" id="btn-history" title="Lịch sử và truy vấn đã lưu"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>
-          <button class="btn icon-btn" id="btn-az" title="Chọn tag theo A–Z">A–Z</button>
-          <button class="btn" id="btn-count" title="Đếm số kết quả">Đếm</button>
-          <button class="btn outline" id="btn-preview" title="Xem trước kết quả">Preview</button>
-          <button class="btn primary" id="btn-download">Tải xuống</button>
-          </div>
-        </div>
-
-        <p class="multi-warn key-needed" id="key-needed" hidden><span id="key-needed-text"></span> <button class="btn sm" id="key-needed-btn">Nhập khoá</button></p>
-
-        <div class="chip-actions glass" id="chip-actions" hidden>
-          <span id="chip-sel-count">0 tag đã chọn</span>
-          <button class="btn sm" data-act="or">Gộp OR (a~b)</button>
-          <button class="btn sm" data-act="neg">Nhóm loại trừ -(a,b)</button>
-          <button class="btn sm" data-act="toggle">Đảo bao gồm/loại trừ</button>
-          <button class="btn sm" data-act="split">Tách nhóm</button>
-          <button class="btn sm danger" data-act="remove">Xoá</button>
-          <button class="btn sm ghost" data-act="clear">Bỏ chọn</button>
-        </div>
-
-        <div class="query-line" id="query-line"><code id="query-text"></code><span id="query-status"></span>
-          <span class="query-tools">
-            <button class="btn sm ghost" id="btn-files" title="Tìm theo tên file, đường dẫn hoặc link post (có thể dán hoặc kéo-thả file vào ô tìm kiếm)">Theo tên file</button>
-            <button class="btn sm ghost" id="btn-save-query" title="Lưu truy vấn hiện tại">☆ Lưu truy vấn</button>
-            <button class="btn sm ghost" id="btn-related" title="Tag hay đi kèm trong trang kết quả đầu" hidden>Tag liên quan</button>
-          </span></div>
-
-        <div class="related glass" id="related" hidden>
-          <div class="related-head"><b>Tag liên quan</b><span class="muted" id="related-info"></span>
-            <span class="row"><label class="check" title="highres, absurdres, commentary…"><input type="checkbox" id="related-meta"> Tag metadata</label>
-              <button class="btn sm ghost" id="related-refresh">Làm mới</button><button class="btn sm ghost" id="related-close" title="Đóng">✕</button></span></div>
-          <div class="related-list" id="related-list"></div>
-        </div>
-
-        <details class="filters glass" id="filters" open>
-          <summary>Bộ lọc & tuỳ chọn tải <span class="filters-sum" id="filters-sum"></span></summary>
-          <div class="filters-grid">
-            <label class="field"><span>Ảnh</span><input type="checkbox" id="f-images" checked></label>
-            <label class="field"><span>Video</span><input type="checkbox" id="f-videos" checked></label>
-            <label class="field" id="f-audio-wrap" hidden><span>Âm thanh</span><input type="checkbox" id="f-audio" checked></label>
-            <label class="field" id="f-vformat-wrap" title="Định dạng file video khi site có cả mp4 và webm"><span>Định dạng video</span>
-              <select id="f-vformat"><option value="">Mặc định</option><option value="mp4">mp4</option><option value="webm">webm</option></select></label>
-            <label class="field" id="f-vres-wrap" hidden title="Lấy bản tốt nhất không cao hơn mức này; site không có bản nào như vậy thì lấy bản nhỏ nhất. NA tối đa 480p"><span>Chất lượng video</span>
-              <select id="f-vres"><option value="0">Cao nhất</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select></label>
-            <label class="field" title="Bản nhẹ: ảnh mẫu nhỏ hơn mà site có sẵn, thay cho file gốc (site không có thì vẫn tải bản gốc). Chỉ áp dụng cho ảnh, không đổi video"><span>Chất lượng ảnh</span>
-              <select id="f-lowres"><option value="">Bản gốc</option><option value="1">Bản nhẹ</option></select></label>
-            <label class="field"><span>Từ ngày</span><input type="date" id="f-datemin"></label>
-            <label class="field"><span>Đến ngày</span><input type="date" id="f-datemax"></label>
-            <label class="field"><span>Số luồng</span><input type="number" id="f-threads" min="1" max="8" value="4"></label>
-            <label class="field" title="Chỉ tải N post đầu tiên theo ô Thứ tự: ID tăng dần = N post cũ nhất, ID giảm dần = N post mới nhất. Đếm sau khi lọc (giới tính, tag loại trừ, file đã tải). 0 = tải hết."><span>Số post tối đa (0 = tất cả)</span><input type="number" id="f-limit" min="0" value="0"></label>
-            <label class="field"><span>Thứ tự</span><select id="f-order"><option value="asc">ID tăng dần</option><option value="desc">ID giảm dần</option></select></label>
-            <label class="field" id="f-parchi-wrap"><span>Kèm post cha/con</span><input type="checkbox" id="f-parchi"></label>
-            <label class="field" title="Bỏ qua post đã có trong index các lần tải (cùng md5, hoặc cùng module và id) khi file vẫn còn trên đĩa, kể cả file ở thư mục khác hoặc tải từ site khác"><span>Bỏ qua file đã tải</span><input type="checkbox" id="f-skip-known"></label>
-            <label class="field" title="Bỏ mọi post có tag gợi ý trẻ vị thành niên (danh sách cố định của Lynxx, extension chỉ thêm được tag), ở Preview và khi tải. Khi bật, post không có tag để kiểm thì bị ẩn khỏi Preview, và với 'Tag + model' model cũng chặn post nó nhận ra. Độc lập với bộ lọc giới tính, mặc định tắt"><span>Chặn nội dung gợi ý trẻ vị thành niên</span><input type="checkbox" id="f-safety"></label>
-            <div class="field wide gender-field" id="f-gender">
-              <span>Giới tính nhân vật <em class="gender-hint" id="f-gender-hint"></em></span>
-              <div class="row">
-                <div class="seg sm" id="f-gender-op" title="Giữ: chỉ giữ các nhóm được chọn · Loại bỏ: bỏ các nhóm được chọn, giữ mọi nhóm còn lại">
-                  <button data-op="keep">Giữ</button><button data-op="exclude">Loại bỏ</button></div>
-                <button class="pill" data-g="only_female" title="Chỉ có nhân vật nữ">Chỉ nữ</button>
-                <button class="pill" data-g="only_male" title="Chỉ có nhân vật nam">Chỉ nam</button>
-                <button class="pill" data-g="both" title="Có cả nam và nữ">Cả hai</button>
-                <button class="pill" data-g="unknown" title="Không xác định được, hoặc không có nhân vật">Không rõ / không có</button>
-                <select id="f-gender-conf" title="Độ tin cậy tối thiểu của nhãn">
-                  <option value="low">Tin cậy: thấp</option><option value="medium">Tin cậy: vừa</option><option value="high">Tin cậy: cao</option>
-                </select>
-                <select id="f-gender-mode" title="Cách xác định nhãn">
-                  <option value="tags">Chỉ dựa vào tag</option><option value="model" disabled>Tag + model (chưa có)</option>
-                </select>
-                <label class="check" title="Futanari, trap/femboy, nhân vật mơ hồ không được tính là chỉ nữ / chỉ nam"><input type="checkbox" id="f-gender-strict"> Nghiêm ngặt</label>
-                <label class="check" id="f-gender-verify-wrap" hidden><input type="checkbox" id="f-gender-verify"> Kiểm tra video sau khi tải</label>
-              </div>
-            </div>
-            <div class="field wide multi-field" id="f-multi">
-              <span>Tải thêm từ site khác <em class="muted">· mỗi site một job, chạy lần lượt; Preview chỉ xem site đang chọn</em></span>
-              <div class="row" id="f-multi-pills"></div>
-              <p class="multi-warn" id="f-multi-warn" hidden></p>
-            </div>
-            <label class="field wide"><span>Thư mục lưu</span>
-              <span class="path-row"><input type="text" id="f-path"><button class="btn sm" id="f-path-pick">Chọn…</button><button class="btn sm ghost" id="f-path-open" title="Mở thư mục">↗</button></span></label>
-          </div>
-        </details>
-
-        <div class="results glass" id="results">
-          <div class="results-bar">
-            <div id="results-info" class="muted">Nhập tag rồi bấm <b>Preview</b> để xem trước, hoặc <b>Tải xuống</b> để tải tất cả.</div>
-            <label class="check pv-size" title="Số post mỗi trang preview (tối đa theo website)">Mỗi trang
-              <select id="pv-size"><option value="50">50</option><option value="100">100</option><option value="200" selected>200</option><option value="max">Tối đa</option></select></label>
-            <div class="results-tools" id="results-tools" hidden>
-              <div class="seg sm" id="kind-filter" hidden></div>
-              <label class="check"><input type="checkbox" id="show-excluded"> Hiện post bị lọc</label>
-              <button class="btn sm ghost" id="sel-all">Chọn hết</button>
-              <button class="btn sm ghost" id="sel-none">Bỏ chọn</button>
-              <button class="btn sm ghost" id="sel-invert">Đảo</button>
-              <button class="btn sm" id="dl-selected" disabled>Tải đã chọn (0)</button>
-              <span class="pager"><button class="btn sm ghost" id="pg-prev">‹</button><span id="pg-num">1</span><button class="btn sm ghost" id="pg-next">›</button></span>
-            </div>
-          </div>
-          <div class="grid" id="grid"></div>
-          <div class="empty" id="grid-empty" hidden></div>
-        </div>
-
-        <aside class="drawer glass" id="az-drawer" hidden>
-          <div class="drawer-head"><b>Chọn tag A–Z</b><button class="btn sm ghost" id="az-close">✕</button></div>
-          <div class="az-host" id="az-drawer-host"></div>
-        </aside>
-
-        <aside class="drawer glass" id="hist-drawer" hidden>
-          <div class="drawer-head">
-            <div class="seg" id="hist-tabs"><button data-tab="history" class="on">Gần đây</button><button data-tab="saved">Đã lưu</button></div>
-            <button class="btn sm ghost" id="hist-close">✕</button></div>
-          <div class="hist-tools"><button class="btn sm" id="hist-save">☆ Lưu truy vấn hiện tại…</button><button class="btn sm ghost danger" id="hist-clear">Xoá lịch sử</button></div>
-          <div class="hist-list" id="hist-list"></div>
-        </aside>
-      </section>
-
-      <!-- DOWNLOADS -->
+      <!-- DOWNLOADS: book download jobs (renderer/books.js) -->
       <section class="page" id="page-downloads">
-        <div class="page-head"><h1>Tải xuống</h1><button class="btn ghost" id="jobs-clear">Xoá job đã xong</button></div>
+        <div class="page-head"><h1>Tải xuống</h1><button class="btn ghost" id="jobs-clear">Xoá lượt tải đã xong</button></div>
         <div id="book-jobs" class="jobs"></div>
-        <div id="jobs" class="jobs"></div>
-        <div class="empty glass" id="jobs-empty">Chưa có job nào. Tạo job từ trang Tìm kiếm.</div>
+        <div class="empty glass" id="jobs-empty">Chưa có lượt tải nào. Mở một truyện ở trang <b>Nguồn truyện</b> rồi bấm <b>Tải</b>.</div>
       </section>
 
       <!-- READER -->
@@ -255,92 +120,6 @@
         </div>
       </section>
 
-      <section class="page" id="page-library">
-        <div class="page-head"><h1>Đã tải</h1><span class="row"><span class="muted" id="lib-stats"></span><div class="seg sm" id="lib-view"><button data-view="library" class="on">Thư viện</button><button data-view="trash" title="File đã xoá, khôi phục được cho tới khi bị xoá vĩnh viễn">Thùng rác <span id="lib-trash-count"></span></button></div><button class="btn sm ghost" id="lib-import" title="Ghi vào index các file đã có sẵn trong một thư mục">Nhập thư viện…</button></span></div>
-        <div class="glass panel lib-bar">
-          <input type="text" id="lib-q" spellcheck="false" autocomplete="off" placeholder="tag  -tag  tiền_tố*  rating:e  md5:…  id:…  (để trống = tất cả)">
-          <select id="lib-module" title="Module"></select>
-          <label class="check">Từ <input type="date" id="lib-from"></label>
-          <label class="check">Đến <input type="date" id="lib-to"></label>
-          <select id="lib-order" title="Sắp xếp">
-            <option value="downloaded">Mới tải trước</option><option value="downloaded_asc">Cũ tải trước</option>
-            <option value="date">Ngày post mới trước</option><option value="date_asc">Ngày post cũ trước</option>
-            <option value="score">Điểm cao trước</option><option value="id">Theo id</option><option value="trashed" hidden>Mới xoá trước</option>
-          </select>
-          <button class="btn primary" id="lib-search">Tìm</button>
-        </div>
-        <div class="results glass">
-          <div class="results-bar">
-            <div class="muted" id="lib-info">Tìm lại file đã tải từ index trên máy (không gửi yêu cầu nào tới website).</div>
-            <div class="results-tools lib-tools">
-              <button class="btn sm ghost" id="lib-sel-page" title="Bấm thẻ để chọn, Shift + bấm để chọn một dải">Chọn cả trang</button>
-              <button class="btn sm ghost" id="lib-sel-none" disabled>Bỏ chọn</button>
-              <button class="btn sm danger" id="lib-delete" disabled title="Chuyển vào thùng rác (phím Delete)">Xoá (0)</button>
-              <button class="btn sm" id="lib-restore" hidden disabled>Khôi phục (0)</button>
-              <button class="btn sm danger" id="lib-purge" hidden disabled>Xoá vĩnh viễn (0)</button>
-              <button class="btn sm ghost danger" id="lib-empty" hidden>Dọn sạch thùng rác…</button>
-              <span class="pager"><button class="btn sm ghost" id="lib-prev">‹</button><span id="lib-page">1</span><button class="btn sm ghost" id="lib-next">›</button></span>
-            </div>
-          </div>
-          <div class="grid lib-grid" id="lib-grid"></div>
-        </div>
-      </section>
-
-      <!-- TAGS -->
-      <section class="page" id="page-tags">
-        <div class="page-head"><h1>Tags A–Z</h1></div>
-        <div class="glass panel">
-          <h2>Danh sách tag (autocomplete)</h2>
-          <p class="muted">Danh sách tag là bản chụp offline, mỗi site một danh sách. Cập nhật thủ công ở đây, tự cập nhật khi mở app, hoặc theo lịch của hệ thống (kể cả khi app đóng).</p>
-          <table class="table" id="tag-status"></table>
-          <label class="check"><input type="checkbox" id="tags-autoupdate"> Tự cập nhật mỗi <input type="number" id="tags-autoupdate-days" min="1" max="60" class="tiny"> ngày khi mở app</label>
-          <div class="tags-schedule" id="tags-schedule">
-            <label class="check"><input type="checkbox" id="tags-schedule-on"> Cập nhật theo lịch của hệ thống, kể cả khi app đóng</label>
-            <select id="tags-schedule-freq" title="Lịch chạy (khoảng 4 giờ sáng)"><option value="weekly">mỗi tuần (thứ Hai)</option><option value="daily">mỗi ngày</option></select>
-            <p class="muted" id="tags-schedule-status"></p>
-          </div>
-        </div>
-        <div class="glass panel az-page"><div class="az-host" id="az-page-host"></div></div>
-      </section>
-
-      <!-- EXTENSIONS -->
-      <section class="page" id="page-extensions">
-        <div class="page-head"><h1>Extensions</h1>
-          <div><button class="btn ghost" id="ext-zip">Cài từ file .zip…</button><button class="btn ghost" id="ext-refresh">Làm mới</button></div></div>
-        <p class="muted">Mỗi website là một extension. <b>Rule34</b> và <b>Danbooru</b> có sẵn; các site khác cài thêm khi cần. Extension là code Python chạy trên máy bạn: chỉ cài từ nguồn tin cậy.</p>
-        <div class="ext-grid" id="ext-grid"></div>
-        <div class="glass panel gen" id="gen-panel">
-          <h2>Tạo extension cho site mới</h2>
-          <p class="muted">Dán link một website: Lynxx đọc robots.txt và API của site, sinh <code>manifest.json</code> + <code>downloader.py</code>, chạy thử trong sandbox rồi lưu thành <b>bản nháp</b>. Bản nháp không tự cài: bạn xem lại rồi bấm <b>Cài vào app</b>, hoặc xuất file .zip.</p>
-          <div class="gen-form">
-            <input type="text" id="gen-url" placeholder="https://booru.example.com" spellcheck="false" autocomplete="off">
-            <div class="seg" id="gen-mode"><button data-mode="ai">Dùng AI (Claude)</button><button data-mode="template">Không dùng AI</button></div>
-            <button class="btn primary" id="gen-start">Tạo bản nháp</button>
-            <button class="btn ghost danger" id="gen-cancel" hidden>Huỷ</button>
-          </div>
-          <div class="row gen-opts">
-            <label class="check"><input type="checkbox" id="gen-m-image" checked> ảnh</label>
-            <label class="check"><input type="checkbox" id="gen-m-video" checked> video</label>
-            <label class="check"><input type="checkbox" id="gen-m-audio"> âm thanh</label>
-            <label class="check">Tag chạy thử <input type="text" id="gen-query" class="gen-short" placeholder="tự chọn" spellcheck="false"></label>
-            <label class="check" id="gen-budget-wrap">Chi phí tối đa <input type="number" id="gen-budget" class="tiny" min="0.1" max="20" step="0.1"> USD</label>
-          </div>
-          <p class="muted gen-hint" id="gen-hint"></p>
-          <div class="notice" id="gen-note" hidden></div>
-          <div class="gen-run" id="gen-run" hidden>
-            <div class="gen-status"><span class="dot" id="gen-dot"></span><b id="gen-phase"></b><span class="muted" id="gen-usage"></span></div>
-            <pre class="gen-log" id="gen-log"></pre>
-          </div>
-          <h3>Bản nháp</h3>
-          <div class="gen-drafts" id="gen-drafts"></div>
-        </div>
-        <div class="glass panel">
-          <h2>Catalog từ xa</h2>
-          <div class="row"><input type="text" id="catalog-url" placeholder="https://…/index.json"><button class="btn" id="catalog-load">Tải danh sách</button></div>
-          <div class="ext-grid" id="remote-grid"></div>
-        </div>
-      </section>
-
       <!-- SETTINGS -->
       <section class="page" id="page-settings">
         <div class="page-head"><h1>Cài đặt</h1><nav class="settings-nav" id="settings-nav" aria-label="Mục cài đặt"></nav></div>
@@ -359,104 +138,27 @@
             <div class="setting" id="bg-blur-row"><span>Độ mờ icon</span><input type="range" id="bg-blur" min="0" max="40"></div>
             <div class="setting"><span>Độ hiện của nền</span><input type="range" id="bg-opacity" min="5" max="100"></div>
             <div class="setting"><span>Lớp tối phủ (dễ đọc)</span><input type="range" id="bg-dim-range" min="0" max="90"></div>
-            <div class="setting"><span>Làm mờ thumbnail (riêng tư)</span><input type="checkbox" id="safe-preview"></div>
           </div>
 
           <div class="glass panel">
-            <h2>Tải xuống mặc định</h2>
-            <div class="setting"><span>Thư mục</span><span class="path-row"><input type="text" id="s-path"><button class="btn sm" id="s-path-pick">Chọn…</button></span></div>
-            <div class="setting"><span>Tạo thư mục con theo truy vấn</span><input type="checkbox" id="s-subfolder"></div>
-            <div class="setting"><span>Tiền tố tên file theo module (rx_, db_…)</span><input type="checkbox" id="s-prefix"></div>
-            <div class="setting"><span>Thêm tag chính vào tên file</span><input type="checkbox" id="s-append"></div>
-            <div class="setting"><span>Giữ ngày sửa đổi gốc</span><input type="checkbox" id="s-preserve"></div>
-            <div class="setting"><span>Lưu thông tin post</span><span class="row">
-              <label class="check"><input type="checkbox" id="s-dump-tags"> tags</label>
-              <label class="check"><input type="checkbox" id="s-dump-sources"> nguồn</label>
-              <label class="check"><input type="checkbox" id="s-dump-comments"> bình luận</label>
-              <label class="check"><input type="checkbox" id="s-dump-hashes"> hash</label></span></div>
-            <div class="setting"><span>Chế độ file info</span><select id="s-infomode"><option value="run">Mỗi lượt tải</option><option value="item">Mỗi file</option><option value="merge">Gộp danh sách</option></select></div>
-            <div class="setting"><span>Cảnh báo khi thư mục không trống</span><input type="checkbox" id="s-warn"></div>
-            <div class="setting"><span>Thông báo khi job xong (lúc Lynxx không ở cửa sổ trước)</span><input type="checkbox" id="s-notify"></div>
-            <div class="setting"><span>Số job chạy song song</span><input type="number" id="s-concurrent" min="1" max="4" class="tiny"></div>
-          </div>
-
-          <div class="glass panel">
-            <h2>Model nhận diện giới tính</h2>
-            <p class="muted">Cho bộ lọc giới tính ở chế độ <b>Tag + model</b>: post có tag chưa đủ để biết giới tính được một model nhận diện tranh anime (WD tagger v3) xem ảnh. Model đoán tag như <code>1girl</code>, <code>1boy</code>, <code>no_humans</code> rồi dùng cùng luật với lọc theo tag; tag gợi ý trẻ vị thành niên mà model thấy được dùng để chặn thêm. Model chỉ dành cho tranh vẽ / 3D.</p>
-            <p class="muted">Model chạy ở <b>model server</b> riêng, app chỉ gọi API nên bản cài không kèm model (~380 MB). Trên máy này: <code>python -m lynxx.model_server</code> (lần đầu tự tải model); trên máy khác hoặc Docker cần token. Ảnh của post được gửi tới địa chỉ dưới đây để nhận diện, server không lưu ảnh. Model chạy nhanh trên GPU có VRAM; không có GPU thì chạy bằng CPU, chậm hơn và tốn RAM.</p>
-            <div class="setting"><span>Dùng model <span class="muted">(kiểm tra GPU / VRAM của server trước khi bật)</span></span><span class="row"><button class="btn sm ghost" id="gm-guide">Hướng dẫn</button><input type="checkbox" id="gm-enabled"></span></div>
-            <div class="setting"><span>Địa chỉ API</span><span class="row"><input type="text" id="gm-url" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8765"><button class="btn sm" id="gm-check">Kiểm tra</button></span></div>
-            <div class="setting key-row"><span>Token <span id="gm-token-state"></span></span><span class="row"><input type="password" id="gm-token" autocomplete="off" spellcheck="false"><button class="btn sm" id="gm-token-save">Lưu</button><button class="btn sm ghost danger" id="gm-token-clear" hidden>Xoá</button></span></div>
-            <div class="setting"><span>Trạng thái</span><span id="gm-status" class="muted">…</span></div>
-            <div class="setting"><span>Phần cứng của server</span><span id="gm-hw" class="muted">…</span></div>
-            <div class="gm-warn" id="gm-warn" hidden></div>
-          </div>
-
-          <div class="glass panel">
-            <h2>Index các lần tải</h2>
-            <p class="muted">Mỗi file tải xong được ghi vào một CSDL cục bộ (chỉ metadata: tag, điểm, rating, md5, ngày post, đường dẫn; không đọc nội dung file, không gửi đi đâu). Index giúp tìm lại file offline và bỏ qua file trùng giữa các module.</p>
-            <div class="setting"><span>Mặc định bỏ qua file đã tải</span><input type="checkbox" id="s-skip-known"></div>
-            <table class="table" id="index-stats"></table>
-            <p class="muted mono" id="index-path"></p>
-            <div class="setting"><span></span><button class="btn sm" id="index-refresh">Làm mới</button></div>
-            <div class="setting index-tool"><span>Dọn index <span class="muted">(bỏ dòng có file đã mất, không xoá file)</span></span>
-              <span class="row"><button class="btn sm ghost" id="index-clean-check" title="Chỉ đếm, không xoá gì">Kiểm tra</button><button class="btn sm" id="index-clean">Dọn index…</button><button class="btn sm ghost danger" id="index-clean-stop" hidden>Dừng</button></span></div>
-            <p class="muted index-clean-status" id="index-clean-status" hidden></p>
-            <div class="setting index-tool"><span>Nhập thư viện có sẵn <span class="muted">(file đã tải trước đây)</span></span><button class="btn sm" id="index-import">Nhập thư mục…</button></div>
-            <div class="setting"><span>Tự dọn thùng rác sau <span class="muted">(file đã xoá ở trang Đã tải)</span></span>
-              <select id="s-trash-days"><option value="7">7 ngày</option><option value="14">14 ngày</option><option value="30">30 ngày</option><option value="60">60 ngày</option><option value="90">90 ngày</option><option value="0">Không tự xoá</option></select></div>
-            <div class="setting index-tool"><span>Thùng rác <span class="muted" id="index-trash-info"></span></span><button class="btn sm ghost danger" id="index-empty-trash">Dọn sạch thùng rác…</button></div>
+            <h2>Tải truyện</h2>
+            <div class="setting"><span>Thông báo khi tải xong (lúc Lynxx không ở cửa sổ trước)</span><input type="checkbox" id="s-notify"></div>
+            <p class="muted">Truyện tải về nằm trong thư mục dữ liệu của Lynxx và hiện ở trang <b>Thư viện</b>. Muốn có file EPUB, KEPUB, CBZ hoặc PDF thì mở truyện và bấm <b>Xuất</b>.</p>
           </div>
 
           <div class="glass panel">
             <h2>Kết nối</h2>
-            <div class="setting"><span>Proxy</span><input type="text" id="c-proxy" placeholder="socks5h://127.0.0.1:1080 hoặc http://host:port"></div>
+            <div class="setting"><span>Proxy</span><input type="text" id="c-proxy" spellcheck="false" placeholder="socks5://127.0.0.1:1080 hoặc http://host:port"></div>
             <div class="setting"><span>Tạm bỏ qua proxy</span><input type="checkbox" id="c-ignore"></div>
-            <div class="setting"><span>Tải file không qua proxy</span><input type="checkbox" id="c-nodown"></div>
-            <div class="setting"><span>Timeout (giây, 0 = mặc định)</span><input type="number" id="c-timeout" min="0" class="tiny"></div>
-            <div class="setting"><span>Số lần thử lại (0 = mặc định)</span><input type="number" id="c-retries" min="0" class="tiny"></div>
-            <div class="json-pair">
-              <div class="setting col"><span>Headers (JSON)</span><textarea id="c-headers" rows="2" spellcheck="false" placeholder='{"User-Agent": "…"}'></textarea></div>
-              <div class="setting col"><span>Cookies (JSON)</span><textarea id="c-cookies" rows="2" spellcheck="false" placeholder='{"name": "…"}'></textarea></div>
-            </div>
-            <p class="muted">Headers và cookies ở trên gửi tới <b>mọi</b> site. Cookie <code>cf_clearance</code> của bot challenge và User-Agent của trình duyệt thì ghi theo site, chỉ site đó nhận được (mã site như <code>rn</code>, ghi đè mục cùng tên ở trên).</p>
-            <div class="json-pair">
-              <div class="setting col"><span>Headers theo site (JSON)</span><textarea id="c-site-headers" rows="2" spellcheck="false" placeholder='{"rn": {"User-Agent": "…"}}'></textarea></div>
-              <div class="setting col"><span>Cookies theo site (JSON)</span><textarea id="c-site-cookies" rows="2" spellcheck="false" placeholder='{"rn": {"cf_clearance": "…"}}'></textarea></div>
-            </div>
+            <p class="muted">Áp dụng cho extension (đọc trang, tải ảnh, tải chương) và ảnh bìa. Proxy cần mật khẩu chưa được hỗ trợ.</p>
             <div class="setting"><span></span><button class="btn sm" id="c-save">Lưu kết nối</button></div>
-            <h3>Xác minh trong Lynxx</h3>
-            <p class="muted">Site chặn bằng bot challenge (Cloudflare): Lynxx mở site trong một cửa sổ riêng để <b>bạn</b> tự qua bước kiểm tra ở đó, Lynxx không tự giải hay bấm hộ. Xong thì cửa sổ tự đóng, cookie <code>cf_clearance</code> và User-Agent của cửa sổ được lưu vào hai ô theo site ở trên, chỉ site đó nhận. Cookie hết hạn sau vài phút tới vài giờ tuỳ site: bị chặn lại thì xác minh lại.</p>
-            <div class="setting" id="c-verify-row"><span>Module</span>
-              <span class="row"><select id="c-verify-module"></select><button class="btn sm" id="c-verify">Xác minh trong Lynxx</button></span></div>
-            <p class="muted" id="c-verify-status"></p>
-          </div>
-
-          <div class="glass panel">
-            <h2>Khoá API &amp; giới hạn tag</h2>
-            <p class="muted" id="keys-note"></p>
-            <div id="api-keys"></div>
-            <h3>Giới hạn tag của tài khoản</h3>
-            <p class="muted">Số tag tối đa mỗi lần tìm mà tài khoản của bạn được phép (0 = mặc định của module). Danbooru: 2 (thường), 6 (Gold), 12 (Platinum).</p>
-            <div id="tag-limits"></div>
-          </div>
-
-          <div class="glass panel">
-            <h2>AI tạo extension</h2>
-            <p class="muted" id="ai-key-note"></p>
-            <div class="setting key-row"><span>Khoá Claude API <span id="ai-key-state"></span></span>
-              <span class="row"><input type="password" id="ai-key" autocomplete="off" spellcheck="false"><button class="btn sm" id="ai-key-save">Lưu</button><button class="btn sm ghost danger" id="ai-key-clear" hidden>Xoá khoá</button></span></div>
-            <div class="setting"><span>Model</span><select id="ai-model"><option value="claude-opus-5-5">Claude Opus 5.5 (mặc định)</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5 (rẻ hơn)</option></select></div>
-            <div class="setting"><span>Chi phí tối đa mỗi lần tạo (USD)</span><input type="number" id="ai-budget" class="tiny" min="0.1" max="20" step="0.1"></div>
-            <p class="muted">Link site, phản hồi của site và kết quả chạy thử được gửi tới Claude API (Anthropic) để phân tích. Mọi yêu cầu tới website vẫn đi từ máy bạn qua bộ lọc của Lynxx (robots.txt, giới hạn tốc độ, chỉ đúng site đó).</p>
           </div>
 
           <div class="glass panel">
             <h2>Nâng cao</h2>
-            <div class="setting"><span>Python (để trống = tự dò .venv)</span><input type="text" id="a-python"></div>
-            <div class="setting"><span>Nhật ký chi tiết (verbose)</span><input type="checkbox" id="a-verbose"></div>
-            <div class="setting"><span>Catalog extension (URL)</span><input type="text" id="a-catalog" placeholder="https://…/index.json"></div>
-            <div class="setting"><span></span><button class="btn sm" id="a-save">Lưu</button></div>
+            <div class="setting" id="a-python-row"><span>Python cho lõi (để trống = tự dò .venv)</span><span class="row"><input type="text" id="a-python" spellcheck="false"><button class="btn sm" id="a-save">Lưu</button></span></div>
+            <div class="setting" id="a-launcher-row"><span>Launcher trên Linux <span class="muted">(menu ứng dụng, dock)</span></span><button class="btn sm" id="a-launcher">Tạo / cập nhật launcher</button></div>
+            <div class="setting"><span>Thư mục dữ liệu <span class="muted">(thư viện, extension, cài đặt)</span></span><button class="btn sm" id="a-data">Mở thư mục</button></div>
             <h3>Thông tin</h3>
             <pre class="about" id="about"></pre>
           </div>
@@ -475,7 +177,6 @@
   <div class="modal" id="modal" hidden><div class="modal-card glass" id="modal-card"></div></div>
 
   <!-- mock.js (browser-only stand-in for the preload bridge) is loaded by app.js only when window.lynxx is missing -->
-  <script src="guide.js"></script>
   <script src="app.js"></script>
   <script src="books.js"></script>
 </body>

@@ -30,18 +30,23 @@ formats open in the same library and reader.
   chm, doc, dot, wps, docx, docm, dotx, dotm, odt, ott, fodt, rtf, hwp, hwpx, hwpml. Files are converted without any
   network access (pure-Python readers, sanitized XHTML); DRM-protected books are refused. The original file is kept.
 
-The booru downloader Lynxx started from (tag search, booru extensions, download index) is still in the app under the
-"Booru" group; its documentation is in [docs/legacy-booru-readme.md](docs/legacy-booru-readme.md).
+Lynxx started as a fork of Lustra, a booru downloader; since 2.1.0 that part is gone and Lynxx is about comics, novels and
+books only.
+
+## Download
+
+Installers for Linux (AppImage, deb), Windows (setup exe) and macOS (dmg, zip) are on the
+[releases page](https://github.com/Leiz-Workspace/Lynxx/releases). The Windows and macOS builds are not signed: on macOS
+open the app the first time with right click → Open.
 
 ## Run from source
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 npm --prefix app install
 npm --prefix app start
 ```
 
-The Electron app starts the Python sidecar (`python -m lynxx.server`) itself. Data lives in `~/.config/Lynxx`
+The Electron app starts the Python sidecar (`python3 -m lynxx.server`, standard library only, Python 3.11 or newer) itself. Data lives in `~/.config/Lynxx`
 (`library/` for books, `index/library.sqlite`, `plugins/` for extensions).
 
 ## Extensions
@@ -70,14 +75,15 @@ new extension from a site link.
 ## Tests
 
 ```bash
-PYTHONPATH=. python3 -m unittest lynxx.tests.test_foundation lynxx.tests.test_library_import lynxx.tests.test_epub_reader \
-  lynxx.tests.test_policy_uncen lynxx.tests.test_source_adapters lynxx.tests.test_nhentai_api lynxx.tests.test_library_books \
-  lynxx.tests.test_formats_text lynxx.tests.test_formats_office lynxx.tests.test_formats_ole lynxx.tests.test_formats_legacy
+python3 -m unittest discover -s lynxx/tests -t .
 npm --prefix app run check
-# in Electron (needs a display; the e2e test also needs a Python with requirements.txt):
+# in Electron (needs a display, or xvfb-run -a):
 npx --prefix app electron app/test/electron-smoke.js
-LYNXX_PYTHON=.venv/bin/python npx --prefix app electron app/test/electron-e2e.js
+npx --prefix app electron app/test/electron-e2e.js
 ```
+
+Building the installers, the packaged self-test and the release flow (staging → release candidate, production → release):
+[docs/operations.md](docs/operations.md).
 
 ## License
 

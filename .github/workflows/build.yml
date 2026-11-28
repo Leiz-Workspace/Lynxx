@@ -1,5 +1,7 @@
 name: Builds
 
+# Manual builds of the desktop app (Electron + the frozen core of tools/build_core.py) on the selected systems, unsigned,
+# uploaded as workflow artifacts. Releases are made by release.yml (push to staging / production).
 on:
   workflow_dispatch:
     inputs:
@@ -12,16 +14,6 @@ on:
       windows:
         default: false
         type: boolean
-      python:
-        description: Python version
-        default: '3.11'
-        type: choice
-        options:
-          - '["3.11"]'
-          - '["3.12"]'
-          - '["3.13"]'
-          - '["3.14"]'
-          - '["3.15"]'
 
 permissions:
   contents: read
@@ -31,108 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
-    if: inputs.linux
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ${{ fromJSON(inputs.python) }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-      - name: Install requirements
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
-      - name: Build
-        continue-on-error: False
-        run: |
-          python lynxx/release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: build-${{ github.job }}-${{ matrix.python-version }}
-          path: |
-            release/Lynxx
-            release/Lynxx.tar.gz
-          compression-level: 0
-
-  macos:
-    if: inputs.macos
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-15]
-        python-version: ${{ fromJSON(inputs.python) }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-      - name: Install requirements
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
-      - name: Build
-        continue-on-error: False
-        run: |
-          python lynxx/release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: build-${{ github.job }}-${{ matrix.python-version }}
-          path: |
-            release/Lynxx
-            release/Lynxx.tar.gz
-          compression-level: 0
-
-  windows:
-    if: inputs.windows
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-        python-version: ${{ fromJSON(inputs.python) }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-      - name: Install requirements
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install pyinstaller==6.21
-      - name: Build
-        continue-on-error: False
-        run: |
-          python lynxx/release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: build-${{ github.job }}-${{ matrix.python-version }}
-          path: |
-            release/Lynxx.exe
-            release/Lynxx.zip
-          compression-level: 0
-
   desktop:
-    # Electron app with the frozen core: tools/build_core.py (PyInstaller one-dir) + electron-builder, one runner per selected OS
-    # (Linux AppImage, Windows NSIS + zip, macOS dmg + zip; unsigned)
     if: inputs.linux || inputs.macos || inputs.windows
     strategy:
       fail-fast: false
@@ -173,46 +64,9 @@ jobs:
           name: desktop-${{ matrix.os }}
           path: |
             app/dist/*.AppImage
+            app/dist/*.deb
             app/dist/*.exe
             app/dist/*.dmg
             app/dist/*.zip
-          compression-level: 0
-          if-no-files-found: error
-
-  model-server:
-    # standalone gender model server (tools/build_model_server.py): CPU onnxruntime on every OS, DirectML on Windows too
-    if: inputs.linux || inputs.macos || inputs.windows
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            variant: cpu
-          - os: macos-15
-            variant: cpu
-          - os: windows-latest
-            variant: cpu
-          - os: windows-latest
-            variant: directml
-        exclude:
-          - os: ${{ !inputs.linux && 'ubuntu-latest' || 'none' }}
-          - os: ${{ !inputs.macos && 'macos-15' || 'none' }}
-          - os: ${{ !inputs.windows && 'windows-latest' || 'none' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - name: Build model server
-        run: python tools/build_model_server.py --variant ${{ matrix.variant }}
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: model-server-${{ matrix.os }}-${{ matrix.variant }}
-          path: |
-            dist-model-server/*.tar.gz
-            dist-model-server/*.zip
           compression-level: 0
           if-no-files-found: error

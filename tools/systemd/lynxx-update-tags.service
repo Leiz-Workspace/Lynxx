@@ -1,9 +1,0 @@
-[Unit]
-Description=Lynxx: update tag lists for autocompletion
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=%h/Workspace/Lynxx/tools/cron/lynxx-update-tags.sh
-Nice=10

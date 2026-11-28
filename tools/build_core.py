@@ -2,150 +2,43 @@
 # coding=UTF-8
 """
 Builds the frozen Lynxx core shipped with the desktop app: a PyInstaller one-dir bundle 'lynxx-core' (entry lynxx/frozen_main.py,
-commands 'server' and 'cli ...') in app/build/core/lynxx-core. electron-builder copies it to <resources>/core (app/package.json
+command 'server') in app/build/core/lynxx-core. electron-builder copies it to <resources>/core (app/package.json
 build.extraResources) and app/main.js runs it instead of python when the app is packaged.
 
-usage: python tools/build_core.py [--tags aliases|none|all|rx,db,...] [--out DIR] [--no-smoke]
-The running interpreter needs the runtime requirements and PyInstaller:
-  python -m pip install -r requirements.txt 'pyinstaller>=6.21'
-Bundled data: builtin extension manifests, gender rules, the domain denylist and trusted catalog keys (lynxx/safety_data), the
-local extension catalog (extensions/, with the 2tags/ list next to the manifest of each extension the app cannot make the whole list
-of by itself: rn, rs with no tag source, rp whose own update merges, ~26 MB), tag aliases and optionally tag lists (2tags/, large:
-~124 MB for all modules; the app can download fresh lists into its data dir instead).
+usage: python tools/build_core.py [--out DIR] [--no-smoke]
+The core uses the standard library only; the running interpreter needs PyInstaller:
+  python -m pip install 'pyinstaller>=6.21'
 """
-#########################################
-#
-#
 
 import argparse
-import ast
-import importlib.util
 import json
 import os
 import pathlib
-import shutil
+import struct
 import subprocess
 import sys
 import tempfile
+import zipfile
+import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 NAME = 'lynxx-core'
 ENTRY = ROOT / 'lynxx' / 'frozen_main.py'
 DEFAULT_OUT = ROOT / 'app' / 'build' / 'core'
-TAGS_DIR = ROOT / '2tags'
-ALIASES_FILE = 'all_tag_aliases.json'
 
-# the legacy Tk GUI is not part of the core: keeps tkinter / Tcl out of the bundle
-EXCLUDED_MODULES = (
-    'tkinter', '_tkinter', 'tkinterdnd2', 'lxml', 'PyInstaller', 'pip', 'setuptools', 'ruff', 'pydoc', 'lib2to3',
-    'lynxx.tests', 'lynxx.release',
-    # developer tool (python -m lynxx.aigen.eval), not a command of the app core
-    'lynxx.aigen.eval',
-    # gender image model: runs in the model server (lynxx/model_server.py), the app core only calls its API. gender_model.py
-    # imports these lazily for its in-process backend; without the exclusion a build environment that has them adds ~110 MB
-    'numpy', 'onnxruntime', 'PIL', 'lynxx.model_server',
-)
+EXCLUDED_MODULES = ('tkinter', '_tkinter', 'PyInstaller', 'pip', 'setuptools', 'ruff', 'pydoc', 'lib2to3', 'lynxx.tests')
+PACKAGES = ('lynxx', 'lynxx/vcs', 'lynxx/formats', 'lynxx/export', 'lynxx/library', 'lynxx/artifacts', 'lynxx/policy', 'lynxx/sources')
 
 
 def _lynxx_modules() -> list[str]:
-    """Core modules importable without tkinter (GUI modules fail to import and are left out). Catalog extensions are loaded from
-    files at run time and import lynxx modules the core itself may not use, so every importable module is bundled"""
+    """Every module of the core: the document converters are imported by name at run time (lynxx.formats.convert), so PyInstaller
+    would not find them by itself"""
     names = []
-    # lynxx/formats: the document converters are imported by name at run time (lynxx.formats.convert), never statically
-    for pkg in ('lynxx', 'lynxx/vcs', 'lynxx/extgen', 'lynxx/aigen', 'lynxx/formats', 'lynxx/export', 'lynxx/library', 'lynxx/artifacts',
-                'lynxx/policy', 'lynxx/sources'):
+    for pkg in PACKAGES:
         for p in sorted((ROOT / pkg).glob('*.py')):
-            # sandbox_boot runs on import (added below without the import probe); extgen.__main__ is the extgen command
-            if p.stem not in ('__init__', '__main__', 'frozen_main', 'sandbox_boot') or (pkg, p.stem) == ('lynxx/extgen', '__main__'):
-                names.append(f'{pkg.replace("/", ".")}.{p.stem}')
-    probe = (
-        'import importlib, json, sys\n'
-        'sys.modules["tkinter"] = None\n'
-        'ok = []\n'
-        'for n in json.loads(sys.argv[1]):\n'
-        '    try:\n'
-        '        importlib.import_module(n)\n'
-        '        ok.append(n)\n'
-        '    except BaseException:\n'  # dev scripts may exit on import
-        '        pass\n'
-        'sys.__stdout__.write("@@" + json.dumps(ok) + "\\n")\n'  # lynxx.server points sys.stdout at stderr
-    )
-    with tempfile.TemporaryDirectory() as data_dir:
-        env = {**os.environ, 'LYNXX_DATA_DIR': data_dir, 'PYTHONPATH': str(ROOT)}
-        out = subprocess.run((sys.executable, '-c', probe, json.dumps(names)), cwd=ROOT, env=env, capture_output=True, text=True, check=True)
-    return json.loads(next(x for x in out.stdout.splitlines() if x.startswith('@@'))[2:])
-
-
-def _extension_imports() -> list[str]:
-    """Top-level modules imported by catalog extensions (their downloader.py files are not analyzed by PyInstaller)"""
-    names: set[str] = set()
-    for src in (ROOT / 'extensions').glob('*/*.py'):
-        for node in ast.walk(ast.parse(src.read_text(encoding='utf-8'))):
-            if isinstance(node, ast.Import):
-                names.update(a.name for a in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-                names.add(node.module)
-    # collections.abc is always bundled (base_library.zip) but PyInstaller reports it as a missing hidden import
-    return sorted(n for n in names if not n.startswith('lynxx') and n != 'collections.abc')
-
-
-def _stage_catalog(dest: pathlib.Path, src: pathlib.Path = ROOT / 'extensions', tags_dir: pathlib.Path = TAGS_DIR) -> pathlib.Path:
-    """The local extension catalog of the core: extensions/ without the tag lists a maintainer keeps next to the manifests (they go
-    into the catalog zips, tools/build_catalog.py). An extension whose manifest names a tagList and whose whole list the app cannot
-    make by itself gets its list from 2tags/ next to its manifest, so installing it (or updating it from the catalog) gives the
-    module its list: one with no tag source (no 'tagUpdate', not a reviewed module, no engine with a tag listing:
-    lynxx/tags_updater.py source_for_manifest; rn, rs), or one whose own update reads only the most used tags and merges them into
-    that list (tagUpdate.merge; rp). The others read theirs from their source, which keeps the core small"""
-    sys.path.insert(0, str(ROOT))
-    from lynxx.extensions import SOURCE_CATALOG, Extensions
-    from lynxx.tags_updater import source_for_manifest
-    shutil.copytree(src, dest, ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '.*', '*_tags.json'))
-    for m in Extensions._scan(dest, SOURCE_CATALOG):
-        source = source_for_manifest(m)
-        if not m.tagList or (source is not None and not source.merge):
-            continue
-        lst = tags_dir / f'{m.abbr}_tags.json'
-        if m.tagList != lst.name or not lst.is_file():  # the app uses '<abbr>_tags.json' only (TagsDB.extension_lists)
-            print(f'note: {m.id} names the tag list {m.tagList}, {lst} is not it or not there: bundled without a list')
-            continue
-        shutil.copy2(lst, dest / m.id / lst.name)
-    return dest
-
-
-def _stage_data(stage: pathlib.Path, tags: str) -> list[tuple[pathlib.Path, str]]:
-    data = [
-        (ROOT / 'lynxx' / 'builtin_ext', 'lynxx/builtin_ext'),
-        (ROOT / 'lynxx' / 'gender_rules', 'lynxx/gender_rules'),
-        # domain denylist and trusted catalog keys: read at run time, a missing file refuses (fail closed)
-        (ROOT / 'lynxx' / 'safety_data', 'lynxx/safety_data'),
-    ]
-    # lynxx.aigen reads real sources as references for the model (lynxx/aigen/tools.py: REF_FILES)
-    sys.path.insert(0, str(ROOT))
-    from lynxx.aigen.tools import REF_FILES
-    refs = stage / 'aigen_refs'
-    for rel in REF_FILES:
-        (refs / rel).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / rel, refs / rel)
-    data.append((refs, 'aigen_refs'))
-    data.append((_stage_catalog(stage / 'extensions'), 'extensions'))
-    tag_files: list[pathlib.Path] = []
-    if tags != 'none' and (TAGS_DIR / ALIASES_FILE).is_file():
-        tag_files.append(TAGS_DIR / ALIASES_FILE)
-    if tags == 'all':
-        tag_files.extend(sorted(TAGS_DIR.glob('*_tags.json')))
-    elif tags not in ('none', 'aliases'):
-        for abbr in (t.strip() for t in tags.split(',') if t.strip()):
-            f = TAGS_DIR / f'{abbr}_tags.json'
-            if not f.is_file():
-                raise SystemExit(f'tag list not found: {f}')
-            tag_files.append(f)
-    if tag_files:
-        tags_stage = stage / '2tags'
-        tags_stage.mkdir()
-        for f in tag_files:
-            shutil.copy2(f, tags_stage / f.name)
-        data.append((tags_stage, '2tags'))
-    return data
+            if p.stem not in ('__main__', 'frozen_main'):
+                names.append(pkg.replace('/', '.') if p.stem == '__init__' else f'{pkg.replace("/", ".")}.{p.stem}')
+    return names
 
 
 def _dir_size(path: pathlib.Path) -> int:
@@ -153,7 +46,7 @@ def _dir_size(path: pathlib.Path) -> int:
 
 
 def _smoke_test(exe: pathlib.Path) -> None:
-    """The bundle must start the sidecar (ready notification, builtin modules loaded) and run the CLI argument parser"""
+    """The bundle must start the sidecar (ready notification) and convert a file of every converter family"""
     with tempfile.TemporaryDirectory() as data_dir:
         env = {**os.environ, 'LYNXX_DATA_DIR': data_dir}
         env.pop('PYTHONPATH', None)
@@ -163,76 +56,84 @@ def _smoke_test(exe: pathlib.Path) -> None:
         if r.returncode != 0 or not ready:
             raise SystemExit(f'smoke test failed: server exit {r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
         print(f'smoke test: server ready, version {ready["params"].get("version")}, python {ready["params"].get("python")}')
-        # gender model: the core is a client of the model server (no numpy / onnxruntime in the bundle), port 9 answers nothing
-        r = subprocess.run((str(exe), 'server'), env=env, capture_output=True, text=True, encoding='utf-8', timeout=120,
-                           input='{"jsonrpc":"2.0","id":1,"method":"gender.modelStatus","params":{"url":"http://127.0.0.1:9"}}\n'
-                                 '{"jsonrpc":"2.0","method":"app.shutdown"}\n')
-        st = next((json.loads(line) for line in r.stdout.splitlines() if line.startswith('{') and '"id":1' in line.replace(' ', '')), {})
-        if st.get('result', {}).get('reachable') is not False or 'not reachable' not in st['result'].get('error', ''):
-            raise SystemExit(f'smoke test failed: gender.modelStatus\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        print('smoke test: gender model client ok')
-        r = subprocess.run((str(exe), 'cli', '--help'), env=env, capture_output=True, text=True, encoding='utf-8', timeout=120)
-        if r.returncode != 0 or '-module' not in r.stdout:
-            raise SystemExit(f'smoke test failed: cli --help exit {r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        print('smoke test: cli ok')
-        # download index tools (library import jobs of the app): a dry run recognizes names only, no request
-        lib = pathlib.Path(data_dir) / 'lib'
-        lib.mkdir()
-        (lib / 'db_1.jpg').write_bytes(b'x')
-        r = subprocess.run((str(exe), 'index', 'import', str(lib), '--dry-run', '--json'), env=env, capture_output=True, text=True,
-                           encoding='utf-8', timeout=120)
-        if r.returncode != 0 or '"totalAll": 1' not in r.stdout:
-            raise SystemExit(f'smoke test failed: index import exit {r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        print('smoke test: index tools ok')
-        r = subprocess.run((str(exe), 'aigen'), input='{"cmd":"start","url":"http://example.com/","mode":"template"}\n', env=env,
-                           capture_output=True, text=True, encoding='utf-8', timeout=120)
-        if '"R10"' not in r.stdout:
-            raise SystemExit(f'smoke test failed: aigen exit {r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        print('smoke test: aigen ok')
-        # domain denylist bundled (lynxx/safety_data): a denied site is refused before any request
-        r = subprocess.run((str(exe), 'aigen'), input='{"cmd":"start","url":"https://www.youtube.com/","mode":"template"}\n', env=env,
-                           capture_output=True, text=True, encoding='utf-8', timeout=120)
-        if '"R7"' not in r.stdout:
-            raise SystemExit(f'smoke test failed: denylist exit {r.returncode}\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        r = subprocess.run((str(exe), 'server'), env=env, capture_output=True, text=True, encoding='utf-8', timeout=120,
-                           input='{"jsonrpc":"2.0","id":1,"method":"ext.remoteCatalog","params":{"url":"http://127.0.0.1:9/index.json"}}\n'
-                                 '{"jsonrpc":"2.0","method":"app.shutdown"}\n')
-        if 'only https' not in r.stdout:
-            raise SystemExit(f'smoke test failed: ext.remoteCatalog\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}')
-        keys = next(exe.parent.rglob('catalog_keys.json'), None)
-        if keys is None or not next(exe.parent.rglob('denied_domains.txt'), None):
-            raise SystemExit('smoke test failed: lynxx/safety_data is not bundled')
-        print('smoke test: denylist and catalog keys ok')
+        _smoke_test_books(exe, env, pathlib.Path(data_dir))
 
 
-def build(out_dir: pathlib.Path, tags: str, smoke: bool) -> pathlib.Path:
+def _tiny_png() -> bytes:
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b''))
+
+
+def _smoke_test_books(exe: pathlib.Path, env: dict[str, str], data_dir: pathlib.Path) -> None:
+    """The document converters are imported by name at run time (lynxx.formats): every family must be in the bundle"""
+    src = data_dir / 'books'
+    src.mkdir()
+    chapter = 'Chương 1\n\nMột đoạn văn.\n\nChương 2\n\nĐoạn khác.\n'
+    (src / 'a.txt').write_text(chapter, encoding='utf-8')
+    (src / 'a.md').write_text('# Chương 1\n\nMột *đoạn* văn.\n', encoding='utf-8')
+    (src / 'a.html').write_text('<html><head><title>T</title></head><body><h1>Chương 1</h1><p>Văn bản.</p></body></html>',
+                                encoding='utf-8')
+    (src / 'a.rtf').write_text(r'{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0 Chapter 1\par Text.\par}', encoding='ascii')
+    (src / 'a.fb2').write_text('<?xml version="1.0" encoding="utf-8"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">'
+                               '<description><title-info><book-title>T</book-title></title-info></description><body><section>'
+                               '<title><p>Chương 1</p></title><p>Văn bản.</p></section></body></FictionBook>', encoding='utf-8')
+    (src / 'a.fodt').write_text('<?xml version="1.0" encoding="UTF-8"?><office:document '
+                                'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+                                'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:mimetype='
+                                '"application/vnd.oasis.opendocument.text"><office:body><office:text><text:h text:outline-level="1">'
+                                'Chương 1</text:h><text:p>Văn bản.</text:p></office:text></office:body></office:document>',
+                                encoding='utf-8')
+    with zipfile.ZipFile(src / 'a.cbz', 'w') as zf:
+        zf.writestr('001.png', _tiny_png())
+        zf.writestr('002.png', _tiny_png())
+    with zipfile.ZipFile(src / 'a.epub', 'w') as zf:
+        zf.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+        zf.writestr('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" '
+                    'xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" '
+                    'media-type="application/oebps-package+xml"/></rootfiles></container>')
+        zf.writestr('OEBPS/content.opf', '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0" '
+                    'unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>T</dc:title>'
+                    '<dc:identifier id="id">x</dc:identifier></metadata><manifest><item id="c1" href="c1.xhtml" '
+                    'media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>')
+        zf.writestr('OEBPS/c1.xhtml', '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>C</title></head>'
+                    '<body><h1>Chương 1</h1><p>Văn bản.</p></body></html>')
+    names = sorted(p.name for p in src.iterdir())
+    lines = [json.dumps({'jsonrpc': '2.0', 'id': i, 'method': 'library.import', 'params': {'source': str(src / name)}})
+             for i, name in enumerate(names, 1)]
+    lines.append(json.dumps({'jsonrpc': '2.0', 'id': 0, 'method': 'formats.supported', 'params': {}}))
+    lines.append('{"jsonrpc":"2.0","method":"app.shutdown"}')
+    r = subprocess.run((str(exe), 'server'), input='\n'.join(lines) + '\n', env=env, capture_output=True, text=True, encoding='utf-8',
+                       timeout=180)
+    replies = {m['id']: m for m in (json.loads(line) for line in r.stdout.splitlines() if line.startswith('{')) if 'id' in m}
+    bad = [f'{name}: {replies.get(i, {}).get("error") or replies.get(i)}' for i, name in enumerate(names, 1)
+           if not (replies.get(i, {}).get('result') or {}).get('chapters')]
+    supported = replies.get(0, {}).get('result')
+    if bad or not supported:
+        raise SystemExit('smoke test failed: book import\n' + '\n'.join(bad) + f'\nformats.supported: {supported}\n{r.stderr[-2000:]}')
+    print(f'smoke test: book import ok ({", ".join(names)})')
+
+
+def build(out_dir: pathlib.Path, smoke: bool) -> pathlib.Path:
     try:
         import PyInstaller  # noqa: F401
     except ImportError:
-        raise SystemExit('PyInstaller is not installed: python -m pip install -r requirements.txt \'pyinstaller>=6.21\'')
+        raise SystemExit('PyInstaller is not installed: python -m pip install \'pyinstaller>=6.21\'')
     out_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='lynxx-core-build-') as tmp:
         stage = pathlib.Path(tmp)
-        data = _stage_data(stage, tags)
         cmd = [
             sys.executable, '-m', 'PyInstaller', str(ENTRY),
             '--name', NAME, '--onedir', '--console', '--noconfirm', '--clean', '--noupx', '--log-level', 'WARN',
             '--distpath', str(out_dir), '--workpath', str(stage / 'work'), '--specpath', str(stage),
             '--paths', str(ROOT),
-            '--collect-data', 'fake_useragent',
-            '--hidden-import', 'socks', '--hidden-import', 'urllib3.contrib.socks',
         ]
-        if importlib.util.find_spec('anthropic') is not None:  # optional: the AI mode of the extension generator
-            cmd += ['--collect-submodules', 'anthropic']
-        else:
-            print('note: the anthropic package is not installed: the bundled core will offer only the template mode of the generator')
-        for name in (*_lynxx_modules(), 'lynxx.extgen.sandbox_boot', *_extension_imports()):
+        for name in _lynxx_modules():
             if name not in EXCLUDED_MODULES:
                 cmd += ['--hidden-import', name]
         for name in EXCLUDED_MODULES:
             cmd += ['--exclude-module', name]
-        for src, dest in data:
-            cmd += ['--add-data', f'{src}{os.pathsep}{dest}']
         print(' '.join(cmd))
         subprocess.run(cmd, cwd=ROOT, check=True)
     bundle = out_dir / NAME
@@ -248,11 +149,9 @@ def build(out_dir: pathlib.Path, tags: str, smoke: bool) -> pathlib.Path:
 def main() -> None:
     ap = argparse.ArgumentParser(description='Build the frozen Lynxx core (PyInstaller one-dir) for the desktop app')
     ap.add_argument('--out', type=pathlib.Path, default=DEFAULT_OUT, help=f'output folder (default: {DEFAULT_OUT})')
-    ap.add_argument('--tags', default='aliases',
-                    help='tag lists to bundle from 2tags/: aliases (default: aliases file only), none, all, or abbreviations: rx,db')
     ap.add_argument('--no-smoke', action='store_true', help='skip starting the built core')
     args = ap.parse_args()
-    build(args.out.resolve(), args.tags.strip().lower(), not args.no_smoke)
+    build(args.out.resolve(), not args.no_smoke)
 
 
 if __name__ == '__main__':

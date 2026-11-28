@@ -131,7 +131,6 @@ def png_image(data: bytes) -> PdfImage:
     pos = 8
     ihdr = None
     palette = b""
-    trns = b""
     idat = bytearray()
     while pos + 8 <= len(data):
         length = struct.unpack(">I", data[pos:pos + 4])[0]
@@ -142,8 +141,6 @@ def png_image(data: bytes) -> PdfImage:
             ihdr = struct.unpack(">IIBBBBB", chunk[:13])
         elif kind == b"PLTE":
             palette = chunk
-        elif kind == b"tRNS":
-            trns = chunk
         elif kind == b"IDAT":
             idat += chunk
         elif kind == b"IEND":

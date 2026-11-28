@@ -4,14 +4,14 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'Lynxx'
-version = '2.0.14'
+version = '2.1.0'
 authors = [
     {name = 'trickerer01'},
 ]
 maintainers = [
     {name = 'DungeonLeiz'},
 ]
-description = 'Lynxx - download, read and export comics, novels and books (vBook-format extensions, local EPUB/PDF/MOBI/DOCX/...); includes the booru downloader it started from (based on the original work of trickerer01)'
+description = 'Lynxx - download, read and export comics, novels and books (vBook-format extensions, local EPUB/PDF/MOBI/DOCX/...)'
 keywords = [
     'python',
     'downloader',
@@ -27,7 +27,7 @@ readme = 'README.md'
 license = 'MIT'
 license-files = ['LICENSE']
 classifiers = [
-    'Topic :: Multimedia :: Video',
+    'Topic :: Text Processing :: Markup :: HTML',
     'Topic :: Multimedia :: Graphics',
     'Development Status :: 5 - Production/Stable',
     'Environment :: Console',
@@ -44,14 +44,7 @@ classifiers = [
     'Operating System :: OS Independent',
 ]
 requires-python = '>=3.11'
-dependencies = [
-    'beautifulsoup4>=4.9.3',
-    'fake-useragent>=2.0.3',
-    'PySocks>=1.7.1',
-    'requests>=2.31',
-    'tkinterdnd2>=0.6',
-    'yarl>=1.25',
-]
+dependencies = []
 [project.optional-dependencies]
 default = []
 static-analysis = [
@@ -59,15 +52,6 @@ static-analysis = [
 ]
 pyinstaller = [
     'pyinstaller>=6.21.0',
-]
-ai = [
-    'anthropic>=2.9',  # AI mode of the extension generator (lynxx.aigen); the template mode needs nothing extra
-]
-model = [
-    'numpy>=1.26', 'onnxruntime>=1.18', 'pillow>=10',  # gender model server (python -m lynxx.model_server) / model in process
-]
-model-gpu = [  # instead of 'model' (both install the onnxruntime package): the model on an NVIDIA GPU, CUDA / cuDNN from pip
-    'numpy>=1.26', 'onnxruntime-gpu[cuda,cudnn]>=1.21', 'pillow>=10',
 ]
 
 [project.urls]
@@ -79,11 +63,8 @@ Lynxx = 'lynxx:main'
 [tool.setuptools]
 py-modules = ['lynxx']
 
-[tool.setuptools.package-data]
-lynxx = ['builtin_ext/*/manifest.json', 'gender_rules/*.json']
-
 [tool.setuptools.packages]
-find = {include = ['lynxx*'], exclude= ['lynxx.release', 'lynxx.tests', 'lynxx.un']}
+find = {include = ['lynxx*'], exclude= ['lynxx.tests']}
 
 [tool.ruff]
 line-length = 140
