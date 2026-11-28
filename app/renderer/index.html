@@ -150,7 +150,16 @@
             <h2>Kết nối</h2>
             <div class="setting"><span>Proxy</span><input type="text" id="c-proxy" spellcheck="false" placeholder="socks5://127.0.0.1:1080 hoặc http://host:port"></div>
             <div class="setting"><span>Tạm bỏ qua proxy</span><input type="checkbox" id="c-ignore"></div>
-            <p class="muted">Áp dụng cho extension (đọc trang, tải ảnh, tải chương) và ảnh bìa. Proxy cần mật khẩu chưa được hỗ trợ.</p>
+            <div class="setting"><span>DNS</span><select id="c-dns">
+              <option value="system">DNS của máy</option>
+              <option value="cloudflare">DNS qua HTTPS: Cloudflare</option>
+              <option value="google">DNS qua HTTPS: Google</option>
+              <option value="quad9">DNS qua HTTPS: Quad9</option>
+              <option value="custom">DNS qua HTTPS: máy chủ khác</option>
+            </select></div>
+            <div class="setting" id="c-doh-row" hidden><span>Máy chủ DNS qua HTTPS</span><input type="text" id="c-doh" spellcheck="false" placeholder="https://cloudflare-dns.com/dns-query"></div>
+            <p class="muted">Áp dụng cho extension (đọc trang, tải ảnh, tải chương) và ảnh bìa. Proxy cần mật khẩu chưa được hỗ trợ.
+              DNS qua HTTPS giúp vào các site bị nhà mạng chặn (ví dụ cuutruyen.net): tên miền được tra qua máy chủ đã chọn thay vì DNS của nhà mạng.</p>
             <div class="setting"><span></span><button class="btn sm" id="c-save">Lưu kết nối</button></div>
           </div>
 

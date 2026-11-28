@@ -18,9 +18,11 @@ Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 | Renderer | `app/renderer/app.js` | Khung app: điều hướng, theme / icon / hình nền, Cài đặt, Nhật ký, trạng thái lõi |
 | Renderer | `app/renderer/books.js`, `index.html`, `styles.css` | Trang Thư viện, Nguồn truyện, Đọc truyện, job tải, hộp thoại Xuất |
 | Preload | `app/preload.js` | `window.lynxx.settings / plugins / books / shelf / reader / app`, `rpc` chỉ cho `app.info`, `formats.supported` |
-| Main | `app/main.js` | Settings, khởi động sidecar (lõi đóng gói `lynxx-core` hoặc `python -m lynxx.server`), ảnh bìa `lynxx-thumb://`, proxy, icon / launcher, thoát app khi còn job, self-test |
+| Main | `app/main.js` | Settings, khởi động sidecar (lõi đóng gói `lynxx-core` hoặc `python -m lynxx.server`), ảnh bìa `lynxx-thumb://`, proxy, DNS qua HTTPS, icon / launcher, thoát app khi còn job, self-test |
 | Main | `app/plugin/ipc.js` | IPC, protocol `lynxx-lib://`, luồng xuất (transcode ảnh, printToPDF) |
-| Main | `app/plugin/host.js` | Extension đã cài, pool sandbox, cầu nối đồng bộ |
+| Main | `app/plugin/host.js` | Extension đã cài, pool sandbox, cầu nối đồng bộ, extension mặc định |
+| Main | `app/plugin/graphics.js`, `graphics.html`, `graphics-page.js` | `Graphics` của extension: cửa sổ ẩn vẽ canvas |
+| Extension | `app/extensions/cuutruyen/` | Extension Cứu Truyện đi kèm app |
 | Main | `app/plugin/http.js` | HTTP cho extension và tải trang (cookie, chặn IP nội bộ, nhịp theo host, Retry-After, resume) |
 | Main | `app/plugin/downloader.js` | Job tải truyện (`BookJobs`) |
 | Sandbox | `app/plugin/sandbox.html`, `sandbox.js`, `sandbox-preload.js` | Renderer ẩn chạy script extension |
@@ -53,7 +55,8 @@ Extension mặc định, cài một lần ở lần mở đầu (người dùng 
 đi kèm app; app mới mang bản mới hơn thì cập nhật bản đã cài từ app). Extension Cứu Truyện chính thức (v5) hỏng từ phía
 nguồn: API trả link ảnh trên host cũ `storage-ct.lrclib.net` (không còn DNS), còn trình đọc của trang tự đổi sang
 `storage-bravo.cuutruyen.net`; extension của Lynxx đổi host như trang, giải `drm_data` (base64 XOR khoá của trình đọc →
-`#v4|dy-cao|…`) rồi xếp lại các dải bằng `Graphics`. Một số nhà mạng chặn `cuutruyen.net` theo SNI. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
+`#v4|dy-cao|…`) rồi xếp lại các dải bằng `Graphics`. Một số nhà mạng chặn `cuutruyen.net` theo tên miền (DNS / SNI): xem
+mục 3.6. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
 `src/*.js`, chặn traversal, symlink, file mã hoá, ≤ 10 MB/file, ≤ 60 MB tổng. Gói được kiểm tra rồi chép vào
 `<data>/plugins/installed/<id>/` bằng thư mục staging + rename.
 
@@ -86,6 +89,16 @@ của hàm ngoài nên `let DOMAIN` trong script vẫn hợp lệ; `Http.post(ur
 Link tương đối nối với `host` hoặc `source`, `//cdn` → `https:`; item không có `name` bị bỏ; trùng link bị bỏ;
 description/detail HTML → text; `page.js` + `toc.js` ghép, bỏ trùng, tối đa 20 000 chương; ảnh comic: chuỗi hoặc
 `{link, fallback, referrerpolicy, script}`; fragment `#referrerpolicy=…&script=…` được tách ra.
+
+### 3.6 Kết nối: proxy, DNS qua HTTPS
+
+Cài đặt → Kết nối, áp dụng ngay khi lưu cho mọi request của app (extension, tải trang, ảnh bìa, kho extension). Proxy:
+`http://` / `socks4://` / `socks5://` (không mật khẩu), đặt cho session mặc định và session extension. DNS
+(`connection.dns`): `system` (mặc định), `cloudflare`, `google`, `quad9`, hoặc `custom` với `connection.dohUrl` (link
+`https://`). DNS qua HTTPS dùng `app.configureHostResolver({secureDnsMode: 'secure'})`: chỉ tra qua máy chủ đã chọn, không
+lặng lẽ quay về DNS nhà mạng; mỗi lần đổi xoá cache phân giải và đóng kết nối cũ. DoH luôn lấy được bản ghi HTTPS của
+site, nên Chromium giấu cả tên miền trong bắt tay TLS (ECH) khi site hỗ trợ (Cloudflare): vào được site bị chặn theo DNS
+hoặc SNI. Với DNS của máy, Chromium cũng dùng ECH khi DNS đó trả bản ghi HTTPS, nhưng nhà mạng có thể chặn hoặc lọc nó.
 
 ## 4. Job tải truyện
 

@@ -37,7 +37,7 @@ function toItem(m) {
 
 // one page of a paged list: {data | data.mangas, _metadata: {current_page, total_pages}}
 function listPage(json, list) {
-  if (!json) return Response.error('Cứu Truyện không trả lời (trang đang lỗi hoặc bị nhà mạng chặn)');
+  if (!json) return Response.error('Cứu Truyện không trả lời: trang đang lỗi hoặc bị nhà mạng chặn (thử DNS qua HTTPS trong Cài đặt → Kết nối)');
   var meta = json._metadata || {};
   var next = meta.current_page && meta.total_pages && meta.current_page < meta.total_pages ? String(meta.current_page + 1) : null;
   return Response.success((list || []).map(toItem), next);

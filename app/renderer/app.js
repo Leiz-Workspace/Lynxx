@@ -314,15 +314,19 @@ function renderSettings() {
   $('#s-notify').checked = s.download.notify !== false;
   $('#c-proxy').value = s.connection.proxy || '';
   $('#c-ignore').checked = Boolean(s.connection.ignoreProxy);
+  $('#c-dns').value = s.connection.dns || 'system';
+  $('#c-doh').value = s.connection.dohUrl || '';
+  $('#c-doh-row').hidden = $('#c-dns').value !== 'custom';
   $('#a-python').value = s.advanced.pythonPath || '';
 }
 $('#s-notify').addEventListener('change', (e) => saveSettings({ download: { notify: e.target.checked } }).catch((err) => toast(errMsg(err), 'err')));
 $('#c-save').addEventListener('click', async () => {
   try {
-    await saveSettings({ connection: { proxy: $('#c-proxy').value.trim(), ignoreProxy: $('#c-ignore').checked } });
+    await saveSettings({ connection: { proxy: $('#c-proxy').value.trim(), ignoreProxy: $('#c-ignore').checked, dns: $('#c-dns').value, dohUrl: $('#c-doh').value.trim() } });
     toast('Đã lưu kết nối', 'ok');
   } catch (err) { toast(`Không lưu được: ${errMsg(err)}`, 'err'); }
 });
+$('#c-dns').addEventListener('change', () => { $('#c-doh-row').hidden = $('#c-dns').value !== 'custom'; });
 $('#a-save').addEventListener('click', async () => {
   try {
     const before = S.settings.advanced.pythonPath;

@@ -13,7 +13,7 @@
   const settings = {
     version: 5,
     appearance: { theme: 'abyss', icon: 'exposed-jaw-cyan', background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 } },
-    download: { notify: true }, connection: { proxy: '', ignoreProxy: false }, advanced: { pythonPath: '' }, window: { width: 1360, height: 860 },
+    download: { notify: true }, connection: { proxy: '', ignoreProxy: false, dns: 'system', dohUrl: '' }, advanced: { pythonPath: '' }, window: { width: 1360, height: 860 },
   };
   const iconUrl = (id) => `../assets/icons/${id}.png`;
   const appearance = () => ({

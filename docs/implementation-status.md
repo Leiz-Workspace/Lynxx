@@ -65,6 +65,8 @@
 - **Extension mặc định**: nHentai (tải từ kho tham chiếu ở lần mở đầu) và Cứu Truyện của Lynxx (`app/extensions/cuutruyen`,
   đi kèm app: đổi host ảnh như trình đọc của trang, giải `drm_data`, xếp lại dải ảnh). Đã chạy thật trọn luồng trang chủ →
   thể loại → tìm → chi tiết → mục lục → 45 trang của một chương.
+- **DNS qua HTTPS** (Cài đặt → Kết nối): Cloudflare / Google / Quad9 / máy chủ khác, áp dụng ngay; đã thử trong app thật
+  (máy chủ DoH không tồn tại → mọi request lỗi; Cloudflare → Cứu Truyện chạy; về DNS máy). Self-test có bước `dns`.
 - **Launcher Linux**: bản chạy từ mã nguồn, self-test hay hồ sơ thử không ghi `~/.local/share/applications/lynxx.desktop`
   nữa (một lần chạy thử đã trỏ launcher của máy sang Electron dev, nên nhấn icon không mở được app); launcher của một bản
   Lynxx khác (AppImage cạnh bản cài) được giữ nguyên.

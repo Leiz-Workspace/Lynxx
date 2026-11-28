@@ -58,7 +58,8 @@ const DEFAULT_SETTINGS = {
     background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 },
   },
   download: { notify: true }, // a system notification when a book download ends while Lynxx is not the focused window
-  connection: { proxy: '', ignoreProxy: false },
+  // dns: 'system' | a key of DOH_SERVERS | 'custom' (dohUrl): DNS over HTTPS for every request of the app
+  connection: { proxy: '', ignoreProxy: false, dns: 'system', dohUrl: '' },
   advanced: { pythonPath: '' },
   window: { width: 1360, height: 860 },
 };
@@ -218,6 +219,10 @@ function sanitizeSettings() {
   if (!THEMES.includes(settings.appearance.theme)) settings.appearance.theme = 'abyss'; // 'ember' (the orange theme of Lustra) included
   if (!ICONS.some((i) => i.id === settings.appearance.icon)) settings.appearance.icon = ICONS[0].id;
   if (!['icon', 'image', 'none'].includes(settings.appearance.background.mode)) settings.appearance.background.mode = 'icon';
+  const c = settings.connection;
+  if (!['system', 'custom', ...Object.keys(DOH_SERVERS)].includes(c.dns)) c.dns = 'system';
+  if (!RE_DOH_URL.test(c.dohUrl)) c.dohUrl = '';
+  if (c.dns === 'custom' && !c.dohUrl) c.dns = 'system';
   const w = settings.window;
   if (!(w.width >= 800 && w.width <= 10000)) w.width = DEFAULT_SETTINGS.window.width;
   if (!(w.height >= 600 && w.height <= 10000)) w.height = DEFAULT_SETTINGS.window.height;
@@ -583,6 +588,33 @@ function registerThumbProtocol() {
   });
 }
 
+// ---------- DNS over HTTPS ----------
+// The system resolver by default. DNS over HTTPS hides the names looked up from the network and always brings the HTTPS
+// records, with which Chromium hides the name of the site in the TLS handshake too (ECH) when the site offers it: the way
+// past a provider that blocks a site by its DNS answers or by that name (ex. cuutruyen.net in Vietnam).
+const DOH_SERVERS = {
+  cloudflare: 'https://cloudflare-dns.com/dns-query',
+  google: 'https://dns.google/dns-query',
+  quad9: 'https://dns.quad9.net/dns-query',
+};
+const RE_DOH_URL = /^https:\/\/[^\s/?#]+(\/[^\s]*)?$/i;
+
+function dohServer(c) {
+  if (c.dns === 'custom') return RE_DOH_URL.test(c.dohUrl) ? c.dohUrl : '';
+  return DOH_SERVERS[c.dns] || '';
+}
+
+async function applyDns() {
+  const server = dohServer(settings.connection);
+  // secure: only DNS over HTTPS (no silent fallback to the provider's resolver); off: the system resolver
+  app.configureHostResolver(server ? { secureDnsMode: 'secure', secureDnsServers: [server] } : { secureDnsMode: 'off' });
+  // what was resolved (or connected) before the change is not reused
+  for (const ses of [session.defaultSession, reader?.host?.pluginSession].filter(Boolean)) {
+    await ses.clearHostResolverCache().catch(() => {});
+    await ses.closeAllConnections().catch(() => {});
+  }
+}
+
 // ---------- proxy ----------
 
 function proxyConfig(c) {
@@ -814,11 +846,19 @@ function registerIpc() {
       if (proxy && !/^(https?|socks4|socks5h?):\/\/[^\s/]+(:\d+)?\/?$/i.test(proxy)) throw new Error('Proxy phải có dạng http://máy:cổng hoặc socks5://máy:cổng');
       patch.connection.proxy = proxy;
     }
+    if (isPlainObject(patch.connection) && patch.connection.dohUrl !== undefined) {
+      const url = String(patch.connection.dohUrl || '').trim();
+      if (url && !RE_DOH_URL.test(url)) throw new Error('Máy chủ DNS qua HTTPS phải là link https://…, ví dụ https://cloudflare-dns.com/dns-query');
+      patch.connection.dohUrl = url;
+    }
+    if (isPlainObject(patch.connection) && patch.connection.dns === 'custom' && !(patch.connection.dohUrl ?? settings.connection.dohUrl)) {
+      throw new Error('Nhập link máy chủ DNS qua HTTPS');
+    }
     if (isPlainObject(patch.appearance)) delete patch.appearance.background?.image; // only through the image dialog
     settings = deepMerge(settings, patch);
     sanitizeSettings();
     saveSettings();
-    if (patch.connection) await applyProxyToSession();
+    if (patch.connection) { await applyDns(); await applyProxyToSession(); }
     let iconSync;
     if (patch.appearance) {
       if (patch.appearance.icon) iconSync = await syncIcon();
@@ -1035,6 +1075,13 @@ async function runSelfTest(dir) {
       out.ok = out.appInfo.ok && out.formats.ok && out.launcher.ok && refused.every((r) => /not allowed/.test(r));
       return out;
     });
+    // DNS over HTTPS: chosen, refused when the server is not an https link, back to the system resolver (no network needed)
+    await step('dns', async () => {
+      const set = (c) => js(`window.lynxx.settings.set(${JSON.stringify({ connection: c })}).then((s) => s.settings.connection.dns + ' ' + s.settings.connection.dohUrl, (e) => 'refused: ' + e.message)`);
+      const out = { quad9: await set({ dns: 'quad9' }), bad: await set({ dns: 'custom', dohUrl: 'ftp://x' }), back: await set({ dns: 'system', dohUrl: '' }) };
+      out.ok = /^quad9 /.test(out.quad9) && /^refused: .*https/.test(out.bad) && out.back.trim() === 'system';
+      return out;
+    });
     // the shell: only the Lynxx pages, the theme of the icon, nothing left of the booru app it was forked from
     await step('ui', async () => {
       const r = await js(`(() => {
@@ -1158,6 +1205,7 @@ if (!app.requestSingleInstanceLock()) {
       log: (text) => send('log', { source: 'plugins', text: redact(String(text)) }),
       notifyBook: (job) => notifyBook(job),
     });
+    await applyDns();
     await applyProxyToSession();
     sidecar.start();
     // nHentai and Cứu Truyện, downloaded from the reference repository (not in a self-test, nor in the test runs that opt out)
