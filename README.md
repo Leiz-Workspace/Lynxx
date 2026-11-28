@@ -8,6 +8,10 @@ Lynxx is a desktop app to **download, read and export comics, novels and books**
 the **vBook format** (the same `plugin.json` + `src/*.js` packages the vBook app uses), and local files of about thirty
 formats open in the same library and reader.
 
+<p align="center">
+  <img src="docs/images/lynxx-library.png" alt="Library: books with covers, source, chapter count and reading progress" width="860" />
+</p>
+
 - **Library ("Thư viện")**: every book is a collection of chapters with cover, author, description and reading
   progress. Downloaded chapters are never fetched again; "Cập nhật chương mới" reads the site's chapter list again and
   downloads only what is new.
@@ -29,6 +33,18 @@ formats open in the same library and reader.
 - **Import from device**: epub, txt, mobi, prc, azw, azw3, fb2, fbz, umd, pdf, cbz, zip, html, htm, xhtml, md, markdown,
   chm, doc, dot, wps, docx, docm, dotx, dotm, odt, ott, fodt, rtf, hwp, hwpx, hwpml. Files are converted without any
   network access (pure-Python readers, sanitized XHTML); DRM-protected books are refused. The original file is kept.
+
+<p align="center">
+  <img src="docs/images/lynxx-sources.png" alt="Sources: an extension's home tab with covers" width="420" />
+  <img src="docs/images/lynxx-reader.png" alt="Reader: a novel chapter" width="420" />
+</p>
+<p align="center">
+  <img src="docs/images/lynxx-export.png" alt="Export: format, scope, introduction, table of contents, chapter titles" width="420" />
+  <img src="docs/images/lynxx-downloads.png" alt="Downloads: one job per book with chapter progress" width="420" />
+</p>
+
+The screenshots come from the UI running on its browser mock (`app/renderer/mock.js`: invented books, covers drawn as
+SVG); `xvfb-run -a npx --prefix app electron app/test/readme-screenshots.js` takes them again.
 
 Lynxx started as a fork of Lustra, a booru downloader; that part was removed before the first release (1.0.0) and Lynxx
 is about comics, novels and books only.
