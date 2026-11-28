@@ -49,8 +49,9 @@ class BookJobs {
   }
 
   public(job) {
+    // a snapshot: listeners keep what they got even while the job moves on
     const { ctl, chapterUrls, ...rest } = job;
-    return { ...rest };
+    return { ...rest, progress: { ...job.progress }, log: [...job.log] };
   }
 
   emit(job) { this.opts.emit(this.public(job)); }

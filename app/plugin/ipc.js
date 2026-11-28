@@ -309,4 +309,4 @@ async function printToPdf(htmlPath, output, title) {
   }
 }
 
-module.exports = { registerLibProtocol, setupReader, IMPORT_EXTENSIONS, EXPORT_FORMATS };
+module.exports = { registerLibProtocol, setupReader, IMPORT_EXTENSIONS, EXPORT_FORMATS, _transcodeImages: transcodeImages, _printToPdf: printToPdf };

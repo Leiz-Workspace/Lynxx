@@ -74,6 +74,9 @@ PYTHONPATH=. python3 -m unittest lynxx.tests.test_foundation lynxx.tests.test_li
   lynxx.tests.test_policy_uncen lynxx.tests.test_source_adapters lynxx.tests.test_nhentai_api lynxx.tests.test_library_books \
   lynxx.tests.test_formats_text lynxx.tests.test_formats_office lynxx.tests.test_formats_ole lynxx.tests.test_formats_legacy
 npm --prefix app run check
+# in Electron (needs a display; the e2e test also needs a Python with requirements.txt):
+npx --prefix app electron app/test/electron-smoke.js
+LYNXX_PYTHON=.venv/bin/python npx --prefix app electron app/test/electron-e2e.js
 ```
 
 ## License
