@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' file: data: blob: lynxx-thumb:; media-src 'self' file: lynxx-thumb:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'">
+        content="default-src 'self'; img-src 'self' file: data: blob: lynxx-thumb: lynxx-lib:; media-src 'self' file: lynxx-thumb:; frame-src 'self' file: about:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'">
   <title>Lynxx</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,10 +22,13 @@
         </div>
       </div>
       <nav class="nav" id="nav">
-        <button data-page="search" class="active"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Tìm kiếm</span></button>
-        <button data-page="downloads"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16"/></svg><span>Tải xuống</span><b class="badge" id="badge-jobs" hidden>0</b></button>
-        <button data-page="library"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg><span>Đã tải</span></button>
+        <button data-page="shelf" class="active"><svg viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5 3.5-1 2 15-3.5 1z"/></svg><span>Thư viện</span></button>
+        <button data-page="sources"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Nguồn truyện</span></button>
         <button data-page="reader"><svg viewBox="0 0 24 24"><path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span>Đọc truyện</span></button>
+        <button data-page="downloads"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16"/></svg><span>Tải xuống</span><b class="badge" id="badge-jobs" hidden>0</b></button>
+        <div class="nav-sep">Booru</div>
+        <button data-page="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Tìm kiếm</span></button>
+        <button data-page="library"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg><span>Đã tải</span></button>
         <button data-page="tags"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span>Tags A–Z</span></button>
         <button data-page="extensions"><svg viewBox="0 0 24 24"><path d="M9 3h6v4a2 2 0 1 0 4 0h2v6h-2a2 2 0 1 0 0 4h2v4H3v-6h2a2 2 0 1 0 0-4H3V7h6z"/></svg><span>Extensions</span><span class="badge" id="badge-ext" hidden title="Extension có bản mới trong catalog"></span></button>
         <button data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Cài đặt</span></button>
@@ -38,7 +41,62 @@
 
     <main class="content">
       <!-- SEARCH -->
-      <section class="page active" id="page-search">
+      <!-- SHELF: collections (extension downloads, imported books) -->
+      <section class="page active" id="page-shelf">
+        <div class="page-head"><h1>Thư viện</h1><span class="row">
+          <input type="text" id="shelf-q" placeholder="Lọc theo tên, tác giả, nguồn…" spellcheck="false">
+          <div class="seg sm" id="shelf-kind"><button data-kind="" class="on">Tất cả</button><button data-kind="comic">Truyện tranh</button><button data-kind="novel">Truyện chữ</button><button data-kind="document">Tài liệu</button></div>
+          <button class="btn sm" id="shelf-link" title="Dán link một bộ truyện: Lynxx tìm extension khớp link và mở trang truyện">Dán link truyện…</button>
+          <button class="btn sm primary" id="shelf-import" title="EPUB, TXT, MOBI/AZW3, FB2, PDF, CBZ, DOCX, ODT, RTF, HTML, Markdown, CHM, DOC/WPS, HWP/HWPX, UMD…">Nhập từ máy…</button>
+        </span></div>
+        <div class="shelf-grid" id="shelf-grid"></div>
+        <div class="empty glass" id="shelf-empty" hidden>Thư viện trống. Nhập sách từ máy, hoặc cài extension ở trang <b>Nguồn truyện</b> rồi tải truyện về.</div>
+      </section>
+
+      <!-- SOURCES: vBook-format extensions -->
+      <section class="page" id="page-sources">
+        <div class="page-head"><h1>Nguồn truyện</h1><span class="row">
+          <div class="seg sm" id="src-tabs"><button data-tab="browse" class="on">Duyệt</button><button data-tab="installed">Đã cài</button><button data-tab="repo">Kho extension</button></div>
+        </span></div>
+        <div id="src-browse" class="src-tab">
+          <div class="glass panel src-bar">
+            <select id="src-plugin" title="Extension"></select>
+            <input type="text" id="src-q" placeholder="Tìm truyện trên nguồn này…" spellcheck="false">
+            <button class="btn sm primary" id="src-search">Tìm</button>
+            <button class="btn sm ghost" id="src-genres">Thể loại</button>
+            <span class="grow"></span>
+            <input type="text" id="src-url" placeholder="hoặc dán link truyện…" spellcheck="false">
+            <button class="btn sm" id="src-open">Mở</button>
+          </div>
+          <div class="src-tabs-row" id="src-home"></div>
+          <div class="src-results" id="src-results"></div>
+          <div class="row src-more"><button class="btn sm" id="src-more" hidden>Tải thêm</button></div>
+          <div class="empty glass" id="src-empty">Chưa có extension nào. Mở tab <b>Đã cài</b> hoặc <b>Kho extension</b> để cài extension định dạng vBook.</div>
+        </div>
+        <div id="src-installed" class="src-tab" hidden>
+          <div class="row" style="margin-bottom:12px">
+            <button class="btn sm" id="src-install-folder">Cài từ thư mục…</button>
+            <button class="btn sm" id="src-install-zip">Cài từ plugin.zip…</button>
+            <button class="btn sm" id="src-install-url">Cài từ link…</button>
+            <span class="muted">Extension định dạng vBook (plugin.json + src/*.js) chạy trong sandbox của Lynxx.</span>
+          </div>
+          <div class="plugin-list" id="src-plugins"></div>
+        </div>
+        <div id="src-repo" class="src-tab" hidden>
+          <div class="glass panel src-bar">
+            <input type="text" id="repo-url" placeholder="Link kho extension vBook (…/plugin.json)" spellcheck="false">
+            <button class="btn sm primary" id="repo-load">Tải danh sách</button>
+            <button class="btn sm ghost" id="repo-save" title="Lưu link kho để mở lại sau">Lưu kho</button>
+            <span class="grow"></span>
+            <input type="text" id="repo-filter" placeholder="Lọc…" spellcheck="false">
+            <select id="repo-type"><option value="">Mọi loại</option><option value="comic">Truyện tranh</option><option value="novel">Truyện chữ</option></select>
+          </div>
+          <div class="row" id="repo-saved"></div>
+          <div class="plugin-list" id="repo-items"></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-search">
         <div class="searchbar glass">
           <div class="module-picker" id="module-picker">
             <button class="module-btn" id="module-btn" aria-haspopup="listbox"><span class="mod-abbr" id="module-abbr">rx</span><span id="module-name">Rule34</span><svg viewBox="0 0 24 24" class="chev"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -169,19 +227,31 @@
       <!-- DOWNLOADS -->
       <section class="page" id="page-downloads">
         <div class="page-head"><h1>Tải xuống</h1><button class="btn ghost" id="jobs-clear">Xoá job đã xong</button></div>
+        <div id="book-jobs" class="jobs"></div>
         <div id="jobs" class="jobs"></div>
         <div class="empty glass" id="jobs-empty">Chưa có job nào. Tạo job từ trang Tìm kiếm.</div>
       </section>
 
       <!-- READER -->
       <section class="page" id="page-reader">
-        <div class="page-head"><h1>Đọc truyện</h1><span class="row"><select id="reader-mode" title="Chế độ đọc"><option value="vertical">Cuộn dọc</option><option value="horizontal">Trượt ngang</option></select><button class="btn sm" id="reader-open">Mở PDF/EPUB…</button></span></div>
+        <div class="reader-bar glass" id="reader-bar">
+          <button class="btn sm ghost" id="rd-back" title="Về thư viện">‹ Thư viện</button>
+          <div class="rd-title"><b id="rd-book">Đọc truyện</b><select id="rd-toc" title="Mục lục"></select></div>
+          <button class="btn sm ghost" id="rd-prev" title="Chương trước ( [ )">‹</button>
+          <button class="btn sm ghost" id="rd-next" title="Chương sau ( ] )">›</button>
+          <select id="rd-mode" title="Chế độ đọc"><option value="vertical">Cuộn dọc</option><option value="horizontal">Trượt ngang</option><option value="paged">Từng trang</option></select>
+          <select id="rd-dir" title="Hướng đọc"><option value="ltr">Trái → phải</option><option value="rtl">Phải → trái</option></select>
+          <span class="rd-font" id="rd-font"><button class="btn sm ghost" data-step="-1" title="Chữ nhỏ hơn">A−</button><button class="btn sm ghost" data-step="1" title="Chữ to hơn">A+</button></span>
+          <span class="rd-ind mono" id="rd-ind"></span>
+          <button class="btn sm ghost" id="rd-full" title="Toàn màn hình (F)">⛶</button>
+          <button class="btn sm" id="reader-open" title="Nhập một file từ máy và đọc ngay">Mở file…</button>
+        </div>
         <div class="reader-shell glass" id="reader-shell">
-          <div class="reader-empty" id="reader-empty">Chọn một file PDF hoặc EPUB để bắt đầu đọc. File sẽ được kiểm tra và giữ trong thư viện Lynxx.</div>
-          <div class="reader-book" id="reader-book" hidden>
-            <div class="reader-page-strip" id="reader-pages"></div>
-            <iframe id="reader-frame" title="Trình đọc tài liệu" hidden sandbox="allow-same-origin"></iframe>
-          </div>
+          <div class="reader-empty" id="reader-empty">Chọn một truyện trong <b>Thư viện</b>, hoặc bấm <b>Mở file…</b> để nhập sách từ máy (EPUB, PDF, TXT, MOBI, CBZ, DOCX…).</div>
+          <div class="reader-pages" id="reader-pages" hidden tabindex="0"></div>
+          <iframe id="reader-text" title="Nội dung chương" hidden sandbox="allow-same-origin"></iframe>
+          <iframe id="reader-frame" title="Trình đọc PDF" hidden></iframe>
+          <div class="rd-end" id="rd-end" hidden><button class="btn primary" id="rd-end-next">Chương sau ›</button></div>
         </div>
       </section>
 
@@ -407,5 +477,6 @@
   <!-- mock.js (browser-only stand-in for the preload bridge) is loaded by app.js only when window.lynxx is missing -->
   <script src="guide.js"></script>
   <script src="app.js"></script>
+  <script src="books.js"></script>
 </body>
 </html>

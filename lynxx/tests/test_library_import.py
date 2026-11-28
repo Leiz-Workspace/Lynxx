@@ -9,6 +9,7 @@ from pathlib import Path
 from lynxx.artifacts import assemble_epub
 from lynxx.library import LibraryDB
 from lynxx.library.importer import import_document
+from lynxx.tests.test_library_books import JPEG
 
 
 class LibraryImportTests(unittest.TestCase):
@@ -16,11 +17,12 @@ class LibraryImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             page = root / "001.jpg"
-            page.write_bytes(b"fixture-page")
+            page.write_bytes(JPEG)
             source = assemble_epub([page], root / "source.epub", "Fixture book")
             db = LibraryDB(root / "db.sqlite")
             result = import_document(source, root / "managed", db)
-            self.assertEqual(result["kind"], "epub")
+            self.assertEqual(result["kind"], "comic")  # an image-only EPUB is read as pages
+            self.assertEqual(result["format"], "epub")
             artifact = db.chapter_artifacts(str(result["chapterId"]))[0]
             self.assertEqual(artifact["sha256"], result["sha256"])
             self.assertEqual(Path(artifact["path"]).read_bytes(), source.read_bytes())

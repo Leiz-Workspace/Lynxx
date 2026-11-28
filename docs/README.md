@@ -1,11 +1,16 @@
 # Tài liệu Lynxx
 
-Giới thiệu, tải về và cách build ngắn gọn (tiếng Anh): [README của repo](../README.md). Các tài liệu dưới đây là bản đầy đủ, viết bằng tiếng Việt, trừ hai tài liệu kế thừa từ bản gốc (tiếng Anh).
+Giới thiệu, chạy từ mã nguồn và test (tiếng Anh): [README của repo](../README.md). Các tài liệu dưới đây là bản đầy đủ, viết bằng tiếng Việt, trừ hai tài liệu kế thừa từ bản gốc (tiếng Anh).
 
 ## Sản phẩm
 | Tài liệu | Nội dung |
 |---|---|
-| [specs.md](specs.md) | Yêu cầu chức năng (F-01…F-21) và phi chức năng, CLI, giao thức sidecar & job, API model server, manifest extension, định dạng tag list, settings, thư mục dữ liệu |
+| [specs.md](specs.md) | Đặc tả Lynxx: thư viện truyện/sách, extension vBook (sandbox, cầu nối, runtime), job tải, nhập ~30 định dạng, xuất EPUB/KEPUB/CBZ/PDF, RPC |
+| [extensions.md](extensions.md) | Tham chiếu API extension định dạng vBook mà Lynxx hỗ trợ (tiếng Anh) |
+| [implementation-status.md](implementation-status.md) | Tình trạng triển khai và những gì cố ý không làm |
+| [source-policy.md](source-policy.md) | Chính sách nguồn của các adapter dựng sẵn |
+| [legacy-booru-specs.md](legacy-booru-specs.md) | Đặc tả booru downloader kế thừa: F-01…F-21, CLI, giao thức sidecar & job, model server, manifest extension booru, tag list, settings |
+| [legacy-booru-readme.md](legacy-booru-readme.md) | README cũ của booru downloader (tiếng Anh) |
 | [components.md](components.md) | Kiến trúc, thành phần Python / Electron, hook & capability, extension, model server, công cụ build và release |
 | [user-stories.md](user-stories.md) | User stories (US-01…US-22) |
 | [use-cases.md](use-cases.md) | Use cases (UC-01…UC-11) |

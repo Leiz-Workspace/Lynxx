@@ -89,48 +89,16 @@ def _jpeg_size(path: Path) -> tuple[int, int]:
 
 
 def assemble_pdf(image_paths: Iterable[str | Path], output: str | Path, title: str = "") -> Path:
-    """Create a PDF whose pages embed local JPEGs; publish with an atomic rename."""
+    """Create a PDF with one page per local JPEG / PNG image; published with an atomic rename.
+
+    WebP / GIF / AVIF pages raise ``NeedsTranscode`` (the app converts them to JPEG first).
+    """
+    from ..export.pdf import write_image_pdf
+
     pages = [Path(page).expanduser().resolve(strict=True) for page in image_paths]
     if not pages:
         raise ValueError("at least one page is required")
-    if any(page.suffix.lower() not in JPEG_EXTENSIONS for page in pages):
-        raise ValueError("PDF assembly currently accepts JPEG pages only")
-    objects: list[bytes] = []
-    page_refs: list[int] = []
-    for page in pages:
-        width, height = _jpeg_size(page)
-        image = page.read_bytes()
-        image_ref = len(objects) + 1
-        objects.append(f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {len(image)} >>\nstream\n".encode() + image + b"\nendstream")
-        content = f"q\n{width} 0 0 {height} 0 0 cm\n/Im{image_ref} Do\nQ\n".encode()
-        content_ref = len(objects) + 1
-        objects.append(f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"endstream")
-        page_ref = len(objects) + 1
-        objects.append(f"<< /Type /Page /MediaBox [0 0 {width} {height}] /Resources << /XObject << /Im{image_ref} {image_ref} 0 R >> >> /Contents {content_ref} 0 R >>".encode())
-        page_refs.append(page_ref)
-    pages_ref = len(objects) + 1
-    objects.append(f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] >>".encode())
-    catalog_ref = len(objects) + 1
-    objects.append(f"<< /Type /Catalog /Pages {pages_ref} 0 R >>".encode())
-    output_path = Path(output).expanduser()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with NamedTemporaryFile(dir=output_path.parent, prefix=f".{output_path.name}.", delete=False) as temp:
-        temporary = Path(temp.name)
-    try:
-        with temporary.open("wb") as stream:
-            stream.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-            offsets = [0]
-            for number, obj in enumerate(objects, 1):
-                offsets.append(stream.tell())
-                stream.write(f"{number} 0 obj\n".encode() + obj + b"\nendobj\n")
-            xref = stream.tell()
-            stream.write(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode())
-            stream.write(b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets[1:]))
-            stream.write(f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_ref} 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode())
-        os.replace(temporary, output_path)
-    finally:
-        temporary.unlink(missing_ok=True)
-    return output_path
+    return write_image_pdf(pages, output, title=title)
 
 
 def assemble_epub(image_paths: Iterable[str | Path], output: str | Path, title: str) -> Path:

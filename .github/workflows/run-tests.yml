@@ -12,6 +12,7 @@ on:
       - 'extensions/**'
       - 'tools/**'
       - 'app/icon-utils.js'
+      - 'app/plugin/**'
       - 'app/test/**'
       - 'pyproject.toml'
       - 'requirements.txt'
@@ -62,6 +63,14 @@ jobs:
           python -m unittest lynxx/tests/tests.py
           python -m unittest lynxx.tests.test_lynxx lynxx.tests.test_gender lynxx.tests.test_security lynxx.tests.test_batch_b lynxx.tests.test_batch_c lynxx.tests.test_batch_c_tags lynxx.tests.test_batch_d_core lynxx.tests.test_batch_d_search lynxx.tests.test_batch_d_app lynxx.tests.test_extgen lynxx.tests.test_dlindex lynxx.tests.test_dlindex_tools lynxx.tests.test_model_server lynxx.tests.test_media_verify lynxx.tests.test_catalog_trust lynxx.tests.test_aigen_eval lynxx.tests.test_gender_eval lynxx.tests.test_tag_sources lynxx.tests.test_search_kinds lynxx.tests.test_type_tag_list lynxx.tests.test_gelbooru_ext lynxx.tests.test_e621_ext lynxx.tests.test_pick_and_quality lynxx.tests.test_rule34xyz_ext
           node app/test/icon-utils.test.js
+      - name: Lynxx library, formats and exports
+        run: |
+          python -m unittest lynxx.tests.test_foundation lynxx.tests.test_library_import lynxx.tests.test_epub_reader lynxx.tests.test_policy_uncen lynxx.tests.test_source_adapters lynxx.tests.test_nhentai_api lynxx.tests.test_library_books lynxx.tests.test_formats_text lynxx.tests.test_formats_office lynxx.tests.test_formats_ole lynxx.tests.test_formats_legacy
+      - name: Extension runtime (vBook format)
+        shell: bash
+        run: |
+          node app/test/plugin-runtime.test.js
+          for f in app/plugin/*.js app/renderer/*.js app/main.js app/preload.js; do node --check "$f"; done
 
   # the one check the ruleset of develop, staging and production requires: every job of the matrix passed
   passed:

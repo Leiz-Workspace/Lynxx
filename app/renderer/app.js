@@ -268,50 +268,11 @@ function showPage(name) {
   if (name === 'extensions') renderExtensions();
   if (name === 'log') showLogPage();
   if (name === 'downloads') jobViews.forEach((v) => v.logView?.reveal());
+  try { window.onLynxxPage?.(name); } catch (err) { console.error(err); } // renderer/books.js
 }
 $$('#nav button').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
 
-// ---------------- local PDF/EPUB reader ----------------
-let readerUrl = '';
-$('#reader-open')?.addEventListener('click', async () => {
-  const file = await L.dialogs.document();
-  if (!file) return;
-  const imported = await L.reader.import(file, file.split(/[\\/]/).pop().replace(/\.[^.]+$/, ''));
-  if (!imported?.ok) { toast(imported?.error || 'Không nhập được tài liệu', 'err'); return; }
-  const result = await L.reader.open(imported.path);
-  if (!result?.ok) { toast(result?.error || 'Không mở được tài liệu', 'err'); return; }
-  readerUrl = result.url;
-  const frame = $('#reader-frame');
-  const book = $('#reader-book');
-  const pages = $('#reader-pages');
-  pages.replaceChildren();
-  frame.hidden = result.type !== 'pdf';
-  book.hidden = result.type !== 'epub';
-  if (result.type === 'epub') {
-    try {
-      const items = await L.reader.epubPages(imported.path);
-      items.forEach((item) => {
-        const image = document.createElement('img');
-        image.src = item.src;
-        image.alt = `Trang ${item.number}`;
-        image.loading = 'lazy';
-        pages.append(image);
-      });
-    } catch (err) {
-      toast(`Không đọc được EPUB: ${errMsg(err)}`, 'err');
-      return;
-    }
-  } else {
-    frame.src = readerUrl;
-  }
-  $('#reader-empty').hidden = true;
-  pages.classList.toggle('reader-horizontal', $('#reader-mode').value === 'horizontal');
-  frame.classList.toggle('reader-horizontal', $('#reader-mode').value === 'horizontal');
-});
-$('#reader-mode')?.addEventListener('change', (event) => {
-  $('#reader-frame')?.classList.toggle('reader-horizontal', event.target.value === 'horizontal');
-  $('#reader-pages')?.classList.toggle('reader-horizontal', event.target.value === 'horizontal');
-});
+// ---------------- library, sources, reader: renderer/books.js ----------------
 
 // ---------------- appearance ----------------
 function applyAppearance(a) {
@@ -4160,7 +4121,7 @@ function listen() {
     }
   });
   L.on('appearance:changed', (a) => applyAppearance(a));
-  try { L.on('nav:page', (page) => { if (['downloads', 'search', 'extensions'].includes(page)) showPage(page); }); } catch { /* older preload */ }
+  try { L.on('nav:page', (page) => { if (['downloads', 'search', 'extensions', 'shelf', 'sources'].includes(page)) showPage(page); }); } catch { /* older preload */ }
   if (L.gen) L.on('gen:event', (ev) => onGenEvent(ev));
 }
 
@@ -4186,7 +4147,7 @@ async function boot() {
   try { renderJobs(); (await L.jobs.list()).forEach(upsertJob); } catch { /* ignore */ }
   // the first status event may have been sent before this page loaded
   try { onSidecarStatus(await L.sidecarStatus()); } catch { /* ignore */ }
-  tagInput.focus();
+  try { window.onLynxxBoot?.(); } catch (err) { console.error(err); } // renderer/books.js
 }
 function start() {
   L = window.lynxx;

@@ -23,6 +23,7 @@ const dnsp = require('node:dns').promises;
 const DESKTOP_ID = 'lynxx';
 const { pngsToIco } = require('./icon-utils');
 const { shq, hasTagBlock, withoutTagBlock, withTagBlock, scheduleWhen } = require('./tag-schedule');
+const { registerLibProtocol, setupReader } = require('./plugin/ipc');
 const {
   CLEARANCE_COOKIE, browserLikeUA, sameSite, siteBaseHost, cookieForHost, clearanceHosts, envProxyRules, ChallengeTracker, mergeHttpMaps,
   withSiteEntry,
@@ -1298,6 +1299,19 @@ function notifyJob(job) {
       ? `${p.success || 0} file ${job.kind === 'import' ? 'đã nhập vào index' : 'đã tải'}${p.failed ? `, ${p.failed} lỗi` : ''}`
       : `Lỗi: ${String(job.error || '').slice(0, 120)}`;
     const n = new Notification({ title: `${job.status === 'done' ? 'Xong' : 'Lỗi'}: ${job.module} · ${job.label || job.tags}`.slice(0, 120), body });
+    n.on('click', () => { if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); send('nav:page', 'downloads'); } });
+    n.show();
+  } catch { /* notifications are optional */ }
+}
+
+function notifyBook(job) {
+  if (!settings.download.notify || !['done', 'failed'].includes(job.status)) return;
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()) return;
+  try {
+    if (!Notification.isSupported()) return;
+    const p = job.progress || {};
+    const body = job.status === 'done' ? `${p.chaptersDone || 0} chương đã tải${p.chaptersFailed ? `, ${p.chaptersFailed} lỗi` : ''}` : `Lỗi: ${String(job.error || '').slice(0, 120)}`;
+    const n = new Notification({ title: `${job.status === 'done' ? 'Xong' : 'Lỗi'}: ${job.title || job.label || job.url}`.slice(0, 120), body });
     n.on('click', () => { if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); send('nav:page', 'downloads'); } });
     n.show();
   } catch { /* notifications are optional */ }
@@ -2602,7 +2616,7 @@ function registerIpc() {
   });
   handle('dialog:document', async () => {
     const r = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openFile'], filters: [{ name: 'Documents', extensions: ['pdf', 'epub'] }],
+      properties: ['openFile'], filters: [{ name: 'Sách, truyện, tài liệu', extensions: require('./plugin/ipc').IMPORT_EXTENSIONS }],
     });
     if (r.canceled) return '';
     approvedPaths.add(r.filePaths[0]);
@@ -2682,8 +2696,8 @@ function registerIpc() {
     const target = String(p || '');
     if (!approvedPaths.has(target)) return { ok: false, error: 'file phải được chọn bằng hộp thoại Lynxx' };
     const ext = path.extname(target).slice(1).toLowerCase();
-    if (!new Set(['pdf', 'epub']).has(ext)) return { ok: false, error: 'chỉ hỗ trợ PDF và EPUB' };
-    const imported = await sidecar.call('library.import', { source: target, title: String(title || '') }, 120000);
+    if (!require('./plugin/ipc').IMPORT_EXTENSIONS.includes(ext)) return { ok: false, error: 'định dạng file chưa được hỗ trợ' };
+    const imported = await sidecar.call('library.import', { source: target, title: String(title || '') }, 1800000);
     approvedPaths.add(imported.path);
     return { ok: true, ...imported };
   });
@@ -2852,8 +2866,11 @@ let quitFlow = null;
 // native confirmation, replaced by the self-test
 let askQuit = (message, detail, okLabel) => confirmMain(message, detail, ['Ở lại', okLabel]);
 
+let reader = null; // extensions, book downloads, library, exports (app/plugin/ipc.js)
+
 function jobsNeedingConfirm() {
-  return jobs.active().filter((j) => j.status === 'queued' || j.status === 'running');
+  const books = reader ? reader.jobs.active().filter((j) => j.status === 'queued' || j.status === 'running') : [];
+  return [...jobs.active().filter((j) => j.status === 'queued' || j.status === 'running'), ...books];
 }
 
 async function confirmQuit(relaunch) {
@@ -2873,6 +2890,7 @@ function requestQuit(relaunch = false) {
         if (!quitApproved && jobsNeedingConfirm().length && !(await confirmQuit(relaunch))) return false;
         quitApproved = true;
         if (jobs.active().length) await jobs.shutdown();
+        reader?.shutdown();
         // AppImage: the running binary lives in a mount that goes away with this process, start the AppImage file again
         if (relaunch) app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE, args: process.argv.slice(1) } : undefined);
         app.quit();
@@ -2905,13 +2923,14 @@ function createWindow() {
     width: settings.window.width, height: settings.window.height, minWidth: 1080, minHeight: 680,
     title: 'Lynxx', icon: iconPath(settings.appearance.icon), backgroundColor: '#0d0b0a', show: false,
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    // plugins: Chromium's built-in PDF viewer for the reader (PDF files of the managed library)
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, plugins: true },
   });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.once('did-finish-load', () => flushStartupNotices());
   mainWindow.on('close', (e) => {
-    if (!quitApproved && jobs.active().length) {
+    if (!quitApproved && jobsNeedingConfirm().length) {
       e.preventDefault();
       requestQuit(false);
       return;
@@ -4873,6 +4892,7 @@ async function selfTestQuitGuard(dir) {
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'lynxx-thumb', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+  { scheme: 'lynxx-lib', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
 
 if (!app.requestSingleInstanceLock()) {
@@ -4885,9 +4905,18 @@ if (!app.requestSingleInstanceLock()) {
     loadSettings();
     await initEncryption();
     registerThumbProtocol();
+    registerLibProtocol(userData());
     registerIpc();
     registerIndexIpc();
     registerLibraryIpc();
+    reader = setupReader({
+      handle, sidecar, send, approvedPaths, userData: userData(), assertPublicHost, isDev: !app.isPackaged,
+      confirm: (message, detail) => confirmMain(message, detail),
+      getWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+      browserUA: (ua) => browserLikeUA(ua, [PACKAGE_NAME, app.getName()]),
+      log: (text) => send('log', { source: 'plugins', text: redact(String(text)) }),
+      notifyBook: (job) => notifyBook(job),
+    });
     await applyProxyToSession();
     sidecar.start();
     setupMenu();
@@ -4911,13 +4940,14 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', (e) => {
     // Cmd+Q, the macOS app menu, OS logout, app.quit(): jobs still queued / running need the user's confirmation first
-    if (!quitApproved && jobs.active().length) {
+    if (!quitApproved && jobsNeedingConfirm().length) {
       e.preventDefault();
       requestQuit(false);
       return;
     }
     quitApproved = true;
     jobs.killAll();
+    reader?.shutdown();
     generator.kill(); // an unfinished generation leaves its draft folder and report behind
     sidecar.stop();
   });
