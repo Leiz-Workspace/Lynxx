@@ -66,6 +66,14 @@ Nhánh: `develop` (làm việc), `staging` (bản thử), `production` (bản ch
 3. Thử bản rc, rồi cho `production` trỏ tới cùng commit và đẩy lên: workflow lấy lại file của bản rc khớp cây mã nguồn
    (kiểm SHA-256), không build lại, và tạo release `v<version>` (latest).
 
+GitHub không tạo sự kiện push cho repo này từ 25/11/2026 (Lustra cùng tổ chức vẫn bình thường), nên push có thể không
+khởi động workflow nào. Khi đó chạy tay với tuỳ chọn `publish`, kết quả giống hệt push:
+
+```bash
+gh workflow run release.yml --repo Leiz-Workspace/Lynxx --ref staging -f publish=true       # bản rc
+gh workflow run release.yml --repo Leiz-Workspace/Lynxx --ref production -f publish=true    # bản chính thức
+```
+
 Workflow **Tests** chạy test Python (3.11 → 3.15, Linux / Windows / macOS) và test Node ở mỗi lần đẩy. Workflow **Builds**
 (chạy tay) build app cho hệ điều hành được chọn mà không phát hành.
 

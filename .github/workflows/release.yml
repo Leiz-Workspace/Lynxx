@@ -8,6 +8,8 @@ name: Release
 #   macOS Apple Silicon / Intel (.dmg, .zip, unsigned) on macos-latest / macos-15-intel.
 # Every release has SHA256SUMS.txt and build-info.json (version, tree, commit, run).
 # - Pull requests and manual runs: Linux x64 is built and smoke-tested, nothing is published.
+# - Manual run on staging or production with "publish": the same as a push there (GitHub stopped creating push events for
+#   this repository after its first days, so the pushes alone may start nothing).
 # - Push to staging:    pre-release v<version>-rc.<run>.
 # - Push to production: release v<version> (latest) from the newest candidate of <version> whose build-info.json matches
 #   this commit's tree: its files are verified against SHA256SUMS.txt and republished, nothing is rebuilt. Without a
@@ -24,6 +26,11 @@ on:
       - staging
       - production
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish as a push would: staging -> release candidate, production -> release'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,12 +64,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish }}
           BRANCH: ${{ github.ref_name }}
           RUN: ${{ github.run_number }}
           # Paths that never reach a release file: a push that changes only these needs no release. app/test/: the app's own
           # tests (electron-builder packs only the 'files' of app/package.json); tools/check_selftest.py reads the self-test report
           NOT_SHIPPED: '^(docs/|\.github/|\.forgejo/|\.claude/|keys/|hooks/|lynxx/tests/|app/test/|tools/check_selftest\.py$|[^/]+\.md$|\.gitignore$)'
         run: |
+          if [ "$EVENT" = workflow_dispatch ] && [ "$PUBLISH_INPUT" = true ]; then
+            if [ "$BRANCH" != staging ] && [ "$BRANCH" != production ]; then
+              echo "::error::publish runs only on staging (release candidate) or production (release), not on $BRANCH"
+              exit 1
+            fi
+            EVENT=push  # the same plan as a push to that branch
+          fi
           version="$(jq -r .version app/package.json)"
           py_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           if [ "$version" != "$py_version" ]; then
