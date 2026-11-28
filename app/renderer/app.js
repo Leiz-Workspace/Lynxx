@@ -2066,12 +2066,18 @@ function flushJobs() {
     pruneJobGroups();
   }
   groups.forEach(updateGroupView);
+  updateJobsBadge();
+}
+function updateJobsBadge() {
+  // booru jobs (this file) + book download jobs (renderer/books.js publishes its counts on window.lynxxBookJobs)
   let active = 0;
   for (const j of S.jobs.values()) if (JOB_ACTIVE.has(j.status)) active++;
+  const books = window.lynxxBookJobs || { active: 0, total: 0 };
+  active += books.active;
   const badge = $('#badge-jobs');
   setHidden(badge, active === 0);
   setText(badge, String(active));
-  setHidden($('#jobs-empty'), S.jobs.size > 0);
+  setHidden($('#jobs-empty'), S.jobs.size + books.total > 0);
 }
 function toggleJobLog(id) {
   const j = S.jobs.get(id);

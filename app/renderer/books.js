@@ -521,10 +521,8 @@
           j.error ? h('span', { class: 'danger' }, ` · ${j.error}`) : null),
         j.log?.length && !active ? h('details', { class: 'job-log' }, h('summary', {}, `Ghi chú (${j.log.length})`), h('pre', { class: 'mono' }, j.log.join('\n'))) : null);
     }));
-    const n = list.filter((j) => ['queued', 'running'].includes(j.status)).length;
-    const badge = $('#badge-jobs');
-    if (badge && n) { badge.hidden = false; badge.textContent = String(n + Number(badge.dataset.booru || 0)); }
-    if (list.length) $('#jobs-empty').hidden = true;
+    window.lynxxBookJobs = { active: list.filter((j) => ['queued', 'running', 'cancelling'].includes(j.status)).length, total: list.length };
+    if (typeof updateJobsBadge === 'function') updateJobsBadge();
   }
   $('#jobs-clear')?.addEventListener('click', async () => { try { (await api().books.clear()); [...bookJobs.keys()].forEach((k) => { if (!['queued', 'running', 'cancelling'].includes(bookJobs.get(k).status)) bookJobs.delete(k); }); renderBookJobs(); } catch { /* older main */ } });
 
@@ -541,7 +539,7 @@
     if (!chapterId) { toast('Chưa có chương nào đã tải để đọc', 'err'); return; }
     showPage('reader');
     try {
-      if (!rd.collection || rd.collection.id !== collectionId) rd.collection = await api().shelf.collection(collectionId);
+      rd.collection = await api().shelf.collection(collectionId); // fresh: chapters may have been downloaded since
     } catch (err) { toast(errMsg(err), 'err'); return; }
     await loadChapter(chapterId);
   }

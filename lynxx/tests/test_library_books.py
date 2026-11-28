@@ -201,3 +201,27 @@ class LibraryBookTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SniffFormatTests(unittest.TestCase):
+    """The registry trusts the bytes over the extension (".doc" files that are web pages, RTF or plain text)."""
+
+    def test_disguised_files(self) -> None:
+        from lynxx.formats import sniff_format
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cases = {
+                "page.doc": (b"<!DOCTYPE html><html><body><p>x</p></body></html>", "html"),
+                "letter.doc": (b"{\\rtf1\\ansi hello}", "rtf"),
+                "notes.doc": ("Chương 1\nnội dung".encode(), "txt"),
+                "book.pdf": (b"%PDF-1.4\n", "pdf"),
+                "comic.zip": (b"", "zip"),
+            }
+            for name, (data, expected) in cases.items():
+                path = root / name
+                if name.endswith(".zip"):
+                    with zipfile.ZipFile(path, "w") as archive:
+                        archive.writestr("001.jpg", JPEG)
+                else:
+                    path.write_bytes(data)
+                self.assertEqual(sniff_format(path), expected, name)

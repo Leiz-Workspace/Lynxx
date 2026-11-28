@@ -85,6 +85,12 @@ class _Writer:
         self.nav: list[tuple[str, str, str]] = []  # id, label, href
         self.files: list[tuple[str, bytes | Path]] = []
         self.identifier = hashlib.md5(f"lynxx:{book.id}".encode()).hexdigest()
+        # anchors of every chapter: a note link into another chapter ("#n1" in chapter 3, the note in "Ghi chú") must
+        # point at that chapter's file
+        self.anchor_file: dict[str, str] = {}
+        for index, chapter in enumerate(book.chapters, 1):
+            for anchor in re.findall(r'\bid="([^"]+)"', chapter.html or ""):
+                self.anchor_file.setdefault(anchor, f"chapter_{index}.xhtml")
 
     # ------------------------------------------------------------ helpers
 
@@ -170,7 +176,13 @@ class _Writer:
                 return f'src="../Images/{href}"' if href else 'src=""'
             body = re.sub(r'src="([^"]*)"', swap, chapter.html)
             body = re.sub(r'<img\b[^>]*src=""[^>]*/>', "", body)
-            parts.append(body)
+            own = set(re.findall(r'\bid="([^"]+)"', chapter.html))
+
+            def relink(match: re.Match) -> str:
+                anchor = match.group(1)
+                target = self.anchor_file.get(anchor)
+                return f'href="{target}#{anchor}"' if target and anchor not in own else match.group(0)
+            parts.append(re.sub(r'href="#([^"]+)"', relink, body))
         elif chapter.remote_images:
             # not downloaded, images known by address: linked like vBook's exports (a reader online shows them)
             parts.extend(f'<div class="page"><img src="{esc(url)}" alt=""/></div>' for url in chapter.remote_images)
