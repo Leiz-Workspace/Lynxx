@@ -296,7 +296,8 @@ class BookJobs {
     this.check(job);
     if (failed) throw new Error(failed);
     const commit = await sidecar.call('library.chapter.commitImages', {
-      chapterId: chapter.id, pages: files.map((f, i) => ({ path: f.path, sourceUrl: images[i].url })),
+      // a page drawn by an image script has no link of its own (its input is the script's, ex. a scrambled image + strips)
+      chapterId: chapter.id, pages: files.map((f, i) => ({ path: f.path, sourceUrl: images[i].script ? '' : images[i].url })),
     }, 300000);
     job.progress.bytes += files.reduce((n, f) => n + f.bytes, 0);
     return commit;

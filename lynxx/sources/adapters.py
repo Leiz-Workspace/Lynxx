@@ -67,7 +67,7 @@ class NhentaiAdapter(PolicyGatedAdapter):
 
 
 class CuutruyenAdapter(PolicyGatedAdapter):
-    """Explicitly blocked: this adapter never decodes DRM or calls image hosts."""
+    """Not used: Cứu Truyện is read by the extension bundled with the app (app/extensions/cuutruyen)."""
 
     source_id = "cuutruyen"
 
@@ -78,4 +78,4 @@ class CuutruyenAdapter(PolicyGatedAdapter):
         raise PermissionError("cuutruyen is blocked: DRM/robots policy prevents retrieval")
 
     def list_pages(self, collection: CollectionRef) -> list[PageRef]:
-        raise PermissionError("cuutruyen is blocked: no DRM or scramble bypass")
+        raise PermissionError("cuutruyen is read by the bundled extension, not by this adapter")

@@ -785,6 +785,8 @@
     loadPlugins();
     try { (await api().books.jobs()).forEach(upsertBookJob); } catch { /* older main */ }
     try { api().on('book:update', upsertBookJob); } catch { /* older preload */ }
+    // the default extensions are installed in the background at the first start
+    try { api().on('plugins:changed', () => loadPlugins()); } catch { /* older preload */ }
   };
   window.lynxxBooks = { openCollection, openReader, loadShelf, loadPlugins };
 })();

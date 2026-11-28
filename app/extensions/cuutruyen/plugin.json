@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "name": "Cứu Truyện",
+    "author": "Lynxx",
+    "version": 6,
+    "source": "https://cuutruyen.net",
+    "regexp": "(https?://)?(www\\.)?(cuutruyen|hetcuutruyen|cuutruyent9sv7|nettrom)\\.(net|xyz|com)/mangas/\\d+/?",
+    "description": "Truyện tranh dịch trên Cứu Truyện. Trang này cắt mỗi trang truyện thành nhiều dải rồi xáo trộn; extension xếp lại như trình đọc của trang.",
+    "locale": "vi_VN",
+    "language": "javascript",
+    "type": "comic"
+  },
+  "script": {
+    "home": "home.js",
+    "genre": "genre.js",
+    "search": "search.js",
+    "detail": "detail.js",
+    "toc": "toc.js",
+    "chap": "chap.js"
+  },
+  "config": {
+    "DOMAIN": {
+      "title": "Tên miền",
+      "subtitle": "Đổi khi cuutruyen.net không vào được, ví dụ https://hetcuutruyen.net",
+      "default": "https://cuutruyen.net",
+      "mode": "input"
+    }
+  }
+}

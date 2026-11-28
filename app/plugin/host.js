@@ -1,5 +1,5 @@
 // Lynxx plugin host (Electron main): installed extensions, the sandbox that runs their scripts, the
-// synchronous bridge (HTTP, sleep, storage, cookies, headless browser, crypto) and the high-level service per extension.
+// synchronous bridge (HTTP, sleep, storage, cookies, headless browser, crypto, Graphics) and the high-level service per extension.
 //
 // Isolation: extension scripts run in hidden sandboxed renderers (Chromium sandbox, context isolation, no Node) whose
 // page has a CSP without connect-src and whose session cancels every network request: the only way out is the bridge
@@ -14,6 +14,7 @@ const { pathToFileURL } = require('node:url');
 const { BrowserWindow, ipcMain, session } = require('electron');
 const { PluginHttp, sleep } = require('./http.js');
 const { cryptoOp } = require('./host-crypto.js');
+const { GraphicsWorker } = require('./graphics.js');
 const { readPackageDir, capabilities, regexMatches, hostMatches, pluginId: idOf, RE_SCRIPT_FILE } = require('./package.js');
 const { createService } = require('./service.js');
 
@@ -30,6 +31,14 @@ const SANDBOX_PARTITION = 'lynxx-plugin-sandbox';
 const DEFAULT_REPOSITORIES = [
   'https://www.vbookext.me/api/plugin.json',
   'https://raw.githubusercontent.com/Darkrai9x/vbook-extensions/master/plugin.json',
+];
+// Lynxx's default sources, installed at the first start: nHentai downloaded from the reference repository (the release files do
+// not carry it), Cứu Truyện from app/extensions (Lynxx's own extension, updated with the app). Each is installed once: one the
+// user uninstalls stays uninstalled, one that could not be installed is tried at the next start
+const BUNDLED_DIR = path.join(__dirname, '..', 'extensions');
+const DEFAULT_EXTENSIONS = [
+  { key: 'nhentai', name: 'nHentai', source: 'https://nhentai.net', url: 'https://raw.githubusercontent.com/Darkrai9x/vbook-extensions/master/nhentai/plugin.zip' },
+  { key: 'cuutruyen', name: 'Cứu Truyện', source: 'https://cuutruyen.net', bundled: 'cuutruyen' },
 ];
 
 class PluginHost {
@@ -88,6 +97,7 @@ class PluginHost {
     sandboxSession.webRequest.onBeforeRequest((details, cb) => cb({ cancel: !details.url.startsWith('file://') && !details.url.startsWith('devtools://') }));
     sandboxSession.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
     this.sandboxUrl = pathToFileURL(path.join(__dirname, 'sandbox.html')).href;
+    this.graphics = new GraphicsWorker({ BrowserWindow, partition: SANDBOX_PARTITION, isDev: this.opts.isDev });
 
     ipcMain.on('plugin-sandbox:sync', (event, op, payload) => {
       const ctx = this.active.get(event.sender.id);
@@ -142,10 +152,9 @@ class PluginHost {
       origin: st.origin || '', repository: st.repository || '', missing: pkg.missing,
       icon: pkg.icon ? `data:image/png;base64,${fs.readFileSync(pkg.icon).toString('base64')}` : '',
       config: Object.entries(pkg.manifest.config).map(([key, c]) => ({ key, ...c, value: (st.config || {})[key] ?? c.default })),
-      supported: caps.content && !caps.graphics && !pkg.manifest.metadata.encrypt,
+      supported: caps.content && !pkg.manifest.metadata.encrypt,
       unsupportedReason: pkg.manifest.metadata.encrypt ? 'Extension được mã hoá (encrypt): Lynxx không có khoá giải mã'
-        : !caps.content ? `Loại "${pkg.manifest.metadata.type}" chưa được hỗ trợ (chỉ novel / comic)`
-          : caps.graphics ? 'Extension vẽ lại ảnh bằng Graphics (thường để gỡ ảnh bị xáo trộn / DRM của site): Lynxx không hỗ trợ việc này' : '',
+        : !caps.content ? `Loại "${pkg.manifest.metadata.type}" chưa được hỗ trợ (chỉ novel / comic)` : '',
     };
   }
 
@@ -178,8 +187,9 @@ class PluginHost {
     const staging = path.join(this.root, `.staging-${id}-${crypto.randomBytes(4).toString('hex')}`);
     await fsp.mkdir(path.join(staging, 'src'), { recursive: true });
     try {
-      await fsp.copyFile(path.join(pkg.root, 'plugin.json'), path.join(staging, 'plugin.json'));
-      if (pkg.icon) await fsp.copyFile(pkg.icon, path.join(staging, 'icon.png'));
+      // read + write rather than copyFile: a bundled extension lives inside app.asar
+      await fsp.writeFile(path.join(staging, 'plugin.json'), await fsp.readFile(path.join(pkg.root, 'plugin.json')));
+      if (pkg.icon) await fsp.writeFile(path.join(staging, 'icon.png'), await fsp.readFile(pkg.icon));
       for (const [name, source] of Object.entries(pkg.files)) {
         if (!RE_SCRIPT_FILE.test(name)) continue;
         await fsp.writeFile(path.join(staging, 'src', name), source, 'utf8');
@@ -236,6 +246,39 @@ class PluginHost {
     const tmp = path.join(this.root, `.dl-${crypto.randomBytes(6).toString('hex')}.zip`);
     await fsp.writeFile(tmp, bytes);
     try { return await this.installFromZip(tmp, { origin: url, ...origin }); } finally { await fsp.rm(tmp, { force: true }); }
+  }
+
+  async installDefaults() {
+    // -> the extensions installed or updated by this call (see DEFAULT_EXTENSIONS)
+    const done = () => new Set(this.state.defaultExtensions || []);
+    const changed = [];
+    for (const d of DEFAULT_EXTENSIONS) {
+      if (this.closed) break;
+      const have = this.list().find((p) => !p.broken && p.name === d.name && String(p.source).replace(/\/+$/, '') === d.source);
+      let bundled = null;
+      if (d.bundled) {
+        try { bundled = readPackageDir(path.join(BUNDLED_DIR, d.bundled)); } catch (err) { this.opts.log(`extension đi kèm ${d.name}: ${err.message}`); continue; }
+      }
+      const version = bundled ? bundled.manifest.metadata.version : 0;
+      let install = false;
+      if (!done().has(d.key)) install = !have || (bundled && have.version < version); // first start (an older copy is replaced)
+      else if (bundled && have && have.origin === 'bundled' && have.version < version) install = true; // the app brought a newer one
+      if (install) {
+        try {
+          const info = bundled ? await this.installFromDir(bundled.root, { origin: 'bundled' }) : await this.installFromUrl(d.url, { repository: DEFAULT_REPOSITORIES[1] });
+          changed.push(info);
+          this.opts.log(`đã cài extension mặc định ${info.name} v${info.version}`);
+        } catch (err) {
+          this.opts.log(`chưa cài được extension mặc định ${d.name}: ${err.message} (thử lại ở lần mở sau)`);
+          continue;
+        }
+      }
+      if (!done().has(d.key)) {
+        this.state.defaultExtensions = [...done(), d.key];
+        this.saveState();
+      }
+    }
+    return changed;
   }
 
   async fetchRepository(url) {
@@ -423,6 +466,7 @@ class PluginHost {
       case 'storage': return this.storage(ctx.pluginId, payload || {});
       case 'cookie': return this.cookie(ctx, payload || {});
       case 'browser': return this.browser(ctx, payload || {});
+      case 'graphics': return this.graphics.handle(payload || {});
       default: return { error: `unknown bridge op ${op}` };
     }
   }
@@ -568,6 +612,7 @@ class PluginHost {
     this.closed = true;
     for (const job of this.queue.splice(0)) job.resolve({ ok: false, error: 'Lynxx is closing' });
     this.closeBrowsers(null);
+    this.graphics?.close();
     for (const slot of [...this.pool]) { slot.dead = true; if (!slot.win.isDestroyed()) slot.win.destroy(); }
     this.pool = [];
   }
@@ -577,4 +622,4 @@ class PluginHost {
   }
 }
 
-module.exports = { PluginHost, PLUGIN_PARTITION, DEFAULT_REPOSITORIES };
+module.exports = { PluginHost, PLUGIN_PARTITION, DEFAULT_REPOSITORIES, DEFAULT_EXTENSIONS };

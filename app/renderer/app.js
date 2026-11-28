@@ -238,7 +238,7 @@ function renderAppearanceSettings() {
   $('#bg-dim-range').value = Math.round((bg.dim ?? 0.18) * 100);
 }
 // sync: what main updated outside the window (iconSync of settings:set): launcher 'updated' | 'unchanged' | 'missing' |
-// 'foreign' | 'unsupported', shortcuts (Windows), restartForDock (Wayland reads the launcher when the app starts)
+// 'foreign' | 'other' | 'skipped' | 'unsupported', shortcuts (Windows), restartForDock (Wayland reads the launcher when the app starts)
 function showIconNotice(sync, a) {
   const n = $('#icon-notice');
   const done = [];
@@ -269,6 +269,12 @@ function showIconNotice(sync, a) {
     n.replaceChildren(
       h('div', {}, 'Icon trong app đã đổi. Launcher lynxx.desktop trên máy do công cụ khác tạo (ví dụ công cụ tích hợp AppImage) nên Lynxx không sửa nó; '
         + 'dock trên Wayland vẫn hiện icon của launcher đó.'));
+  } else if (sync?.launcher === 'other') {
+    n.replaceChildren(
+      h('div', {}, 'Icon trong app đã đổi. Launcher lynxx.desktop trên máy mở một bản Lynxx khác (ví dụ AppImage cạnh bản cài) nên bản này không sửa nó; '
+        + 'dock trên Wayland vẫn hiện icon của launcher đó.'));
+  } else if (sync?.launcher === 'skipped') {
+    n.replaceChildren(h('div', {}, 'Icon trong app đã đổi. Bản chạy từ mã nguồn hoặc hồ sơ thử không sửa launcher của máy.'));
   } else {
     n.replaceChildren(
       h('div', {}, 'Icon trong app và launcher đã đổi. Dock trên Wayland chỉ đọc launcher khi app mở: khởi động lại để dock hiện icon mới.'),

@@ -274,7 +274,12 @@ function setupReader(ctx) {
     }, 30000);
   });
 
-  return { host, jobs, exportCollection, shutdown: () => { jobs.shutdown(); host.shutdown(); } };
+  const installDefaultExtensions = async () => {
+    const installed = await host.installDefaults().catch((err) => { log(`extension mặc định: ${err.message}`); return []; });
+    if (installed.length) send('plugins:changed', { installed: installed.map((p) => p.id) });
+  };
+
+  return { host, jobs, exportCollection, installDefaultExtensions, shutdown: () => { jobs.shutdown(); host.shutdown(); } };
 }
 
 // ------------------------------------------------------------ Chromium helpers

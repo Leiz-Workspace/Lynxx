@@ -12,6 +12,7 @@
     cookie: (op, url, value) => bridge.call('cookie', { op, url, value }),
     browser: (op, payload) => bridge.call('browser', { op, ...(payload || {}) }),
     crypto: (op, args) => bridge.call('crypto', { op, args }),
+    graphics: (payload) => bridge.call('graphics', payload),
   };
   bridge.onRun((job) => {
     let result;

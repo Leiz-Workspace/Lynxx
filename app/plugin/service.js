@@ -170,9 +170,12 @@ function createService({ runner, manifest, capabilities }) {
         for (const img of (Array.isArray(r.data) ? r.data : []).slice(0, MAX_IMAGES)) {
           const raw = typeof img === 'string' ? img : img && typeof img === 'object' ? img.link : '';
           const opts = splitFragmentOptions(raw);
-          const link = absolute(opts.url, source);
-          if (!link) continue;
           const obj = typeof img === 'object' && img ? img : {};
+          // the link of a page drawn by an image script is that script's input, kept as it is (ex. "<image url> <json of the
+          // strips>"); only a plain link is made absolute
+          const scripted = Boolean(obj.script || opts.script);
+          const link = scripted ? String(opts.url ?? '').trim().slice(0, 100000) : absolute(opts.url, source);
+          if (!link) continue;
           images.push({
             url: link,
             fallback: (Array.isArray(obj.fallback) ? obj.fallback : []).map((f) => absolute(f, source)).filter(Boolean).slice(0, 5),

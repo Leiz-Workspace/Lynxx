@@ -1,5 +1,5 @@
 // Lynxx plugin runtime: the extension API (fetch, Http, Html, Response, load, Console, sleep, localStorage,
-// localCookie, cacheStorage, UserAgent, Engine.newBrowser) on top of a synchronous `host` object.
+// localCookie, cacheStorage, UserAgent, Engine.newBrowser, Graphics) on top of a synchronous `host` object.
 // The same file runs in the sandboxed plugin renderer (plain <script>, host = preload bridge over sendSync) and in Node
 // (tests and the dev CLI). Extension code is plain sloppy-mode JavaScript written for Rhino: it calls fetch()
 // synchronously, so every host call is synchronous.
@@ -28,6 +28,38 @@
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
+  }
+
+  // width / height read from the file header (PNG, JPEG, GIF, WebP, BMP) -> {width, height, type} | null
+  function imageSize(b) {
+    const be16 = (i) => (b[i] << 8) | b[i + 1];
+    const le16 = (i) => b[i] | (b[i + 1] << 8);
+    const le24 = (i) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
+    const be32 = (i) => ((b[i] << 24) >>> 0) + ((b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]);
+    const ascii = (i, n) => String.fromCharCode(...b.subarray(i, i + n));
+    if (b.length >= 24 && b[0] === 0x89 && ascii(1, 3) === 'PNG') return { width: be32(16), height: be32(20), type: 'png' };
+    if (b.length >= 10 && ascii(0, 4) === 'GIF8') return { width: le16(6), height: le16(8), type: 'gif' };
+    if (b.length >= 26 && ascii(0, 2) === 'BM') return { width: Math.abs(new DataView(b.buffer, b.byteOffset).getInt32(18, true)), height: Math.abs(new DataView(b.buffer, b.byteOffset).getInt32(22, true)), type: 'bmp' };
+    if (b.length >= 30 && ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') {
+      const chunk = ascii(12, 4);
+      if (chunk === 'VP8 ') return { width: le16(26) & 0x3fff, height: le16(28) & 0x3fff, type: 'webp' };
+      if (chunk === 'VP8L') return { width: 1 + (((b[22] & 0x3f) << 8) | b[21]), height: 1 + (((b[24] & 0x0f) << 10) | (b[23] << 2) | ((b[22] & 0xc0) >> 6)), type: 'webp' };
+      if (chunk === 'VP8X') return { width: 1 + le24(24), height: 1 + le24(27), type: 'webp' };
+      return null;
+    }
+    if (b.length >= 4 && b[0] === 0xff && b[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < b.length) {
+        if (b[i] !== 0xff) return null;
+        const m = b[i + 1];
+        if (m === 0xff) { i += 1; continue; }
+        if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+        // SOF0..SOF15 hold the frame size; C4 (DHT), C8 (JPG) and CC (DAC) are not frames
+        if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { width: be16(i + 7), height: be16(i + 5), type: 'jpeg' };
+        i += 2 + be16(i + 2);
+      }
+    }
+    return null;
   }
 
   function decodeBytes(bytes, charset) {
@@ -445,6 +477,63 @@
     // browser.urls() is a JSON string in older reader apps and an array in newer ones: an array that prints as JSON
     const jsonList = (urls) => { const arr = Array.isArray(urls) ? urls.slice() : []; arr.toString = () => JSON.stringify(Array.from(arr)); return arr; };
 
+    // Graphics: an image drawn again from parts of others (ex. the pages a site serves cut into shuffled strips). The script
+    // only records what to draw; capture() is one host call that draws it (Chromium's decoders and canvas) and returns the
+    // image as base64, which an image script ("image.js" of a comic page) returns as the page
+    const MAX_CANVAS_SIDE = 16384;
+    const MAX_CANVAS_PIXELS = 64 * 1024 * 1024;
+    const MAX_DRAWS = 20000;
+    const imageData = new WeakMap(); // image object -> base64
+    const toBase64 = (data) => {
+      const raw = typeof data === 'string' ? data : data && typeof data.base64 === 'function' ? data.base64() : '';
+      return String(raw || '').replace(/^data:[^,]*,/, '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    };
+    const Graphics = {
+      createImage(data) {
+        const b64 = toBase64(data);
+        if (!b64) throw new Error('Graphics.createImage: no image data');
+        // the header is enough for the size (262144 base64 chars = 192 KiB); anything else asks the host to decode it
+        let size = imageSize(base64ToBytes(b64.slice(0, 262144)));
+        if (!size || !(size.width > 0 && size.height > 0)) size = host.graphics({ op: 'size', image: b64 });
+        if (!size || size.error || !(size.width > 0 && size.height > 0)) throw new Error(`Graphics.createImage: not an image${size && size.error ? ` (${size.error})` : ''}`);
+        const width = size.width | 0;
+        const height = size.height | 0;
+        const img = { width, height, getWidth: () => width, getHeight: () => height };
+        imageData.set(img, b64);
+        return img;
+      },
+      createCanvas(width, height) {
+        const w = Math.round(Number(width));
+        const h = Math.round(Number(height));
+        if (!(w >= 1 && h >= 1 && w <= MAX_CANVAS_SIDE && h <= MAX_CANVAS_SIDE && w * h <= MAX_CANVAS_PIXELS)) throw new Error(`Graphics.createCanvas: invalid size ${width}x${height}`);
+        const sources = [];
+        const draws = [];
+        return {
+          width: w, height: h, getWidth: () => w, getHeight: () => h,
+          // the canvas forms: (image, dx, dy) | (image, dx, dy, dw, dh) | (image, sx, sy, sw, sh, dx, dy, dw, dh)
+          drawImage(image, ...args) {
+            const b64 = imageData.get(image);
+            if (!b64) throw new Error('Graphics: drawImage needs an image of Graphics.createImage');
+            const n = args.map(Number);
+            let d;
+            if (args.length >= 8) d = n.slice(0, 8);
+            else if (args.length >= 4) d = [0, 0, image.width, image.height, n[0], n[1], n[2], n[3]];
+            else d = [0, 0, image.width, image.height, n[0], n[1], image.width, image.height];
+            if (!d.every(Number.isFinite)) throw new Error('Graphics: drawImage takes numbers');
+            if (draws.length >= MAX_DRAWS) throw new Error('Graphics: too many drawImage calls');
+            let i = sources.indexOf(b64);
+            if (i < 0) i = sources.push(b64) - 1;
+            draws.push([i, ...d]);
+          },
+          capture(type, quality) {
+            const r = host.graphics({ op: 'compose', width: w, height: h, images: sources, draws, type: type ? String(type) : '', quality: Number(quality) || 0 });
+            if (!r || typeof r.data !== 'string' || !r.data) throw new Error(`Graphics capture: ${r && r.error ? r.error : 'no image'}`);
+            return r.data;
+          },
+        };
+      },
+    };
+
     const unsupported = (name) => new Proxy({}, { get: () => () => { throw new Error(`${name} is not supported by Lynxx`); } });
 
     return {
@@ -453,7 +542,7 @@
         get CryptoJS() { return getCrypto(); },
         sleep: (ms) => { const n = Math.max(0, Math.min(MAX_SLEEP_MS, Number(ms) || 0)); if (n) host.sleep(n); },
         UserAgent: { chrome: () => UA.chrome, android: () => UA.android, ios: () => UA.ios, firefox: () => UA.firefox, safari: () => UA.safari, system: () => UA.chrome },
-        Graphics: unsupported('Graphics'), Java: unsupported('Java'), java: unsupported('java'), Packages: unsupported('Packages'),
+        Graphics, Java: unsupported('Java'), java: unsupported('java'), Packages: unsupported('Packages'),
         Script: unsupported('Script'), WebSocket: unsupported('WebSocket'), localDatabase: unsupported('localDatabase'), localBook: unsupported('localBook'),
         load: (name) => { throw new Error(`load('${name}'): file not found in the extension`); },
         atob: typeof atob === 'function' ? atob : (s) => Buffer.from(String(s), 'base64').toString('binary'),
@@ -539,5 +628,5 @@
     }
   }
 
-  return { runScript, createApi, inlineLoads, normalizeResult, withQuery, UA };
+  return { runScript, createApi, inlineLoads, normalizeResult, withQuery, imageSize, UA };
 }));

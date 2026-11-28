@@ -77,7 +77,7 @@ contextBridge.exposeInMainWorld('lynxx', {
   // covers of the sites, fetched and cached by main (public hosts only)
   thumbUrl: (url, referer) => `lynxx-thumb://t/?u=${encodeURIComponent(url)}&r=${encodeURIComponent(referer || '')}`,
   on: (channel, cb) => {
-    const allowed = ['log', 'sidecar:status', 'sidecar:notify', 'appearance:changed', 'nav:page', 'book:update'];
+    const allowed = ['log', 'sidecar:status', 'sidecar:notify', 'appearance:changed', 'nav:page', 'book:update', 'plugins:changed'];
     if (!allowed.includes(channel)) throw new Error(`channel not allowed: ${channel}`);
     const handler = (_event, data) => cb(data);
     ipcRenderer.on(channel, handler);

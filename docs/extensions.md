@@ -80,7 +80,10 @@ src/*.js         scripts, top level of src/ only
   `setCookie("a=b")`, `localConfig.getItem(key, default)`.
 - `Engine.newBrowser()` → `launch(url, ms)`, `html(ms)`, `callJs(js, ms)`, `waitUrl(regex | [regex], ms)`, `urls()`,
   `block([regex])`, `loadHtml(base, html)`, `close()`. App only (hidden Chromium window); the CLI cannot run it.
-- Not available: `Graphics`, `Java.type`, `java.*`, `Packages`, `Script`, `WebSocket`, `localDatabase`, `localBook`.
+- `Graphics.createImage(base64 | response)` → `{width, height}`; `Graphics.createCanvas(w, h)` → `drawImage(image, dx, dy)`,
+  `drawImage(image, dx, dy, dw, dh)`, `drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)`, `capture([type, quality])` →
+  base64 (an image script returns it as the page). App only: the CLI reads image sizes but cannot draw.
+- Not available: `Java.type`, `java.*`, `Packages`, `Script`, `WebSocket`, `localDatabase`, `localBook`.
 
 ## Jsoup-like elements
 

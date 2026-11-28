@@ -15,5 +15,7 @@ its own license). electron-builder and the other build tools are not part of the
 
 ## Extensions
 
-Extensions are not shipped with Lynxx: users install them from sources they choose. Their scripts and the
-content of the sites they read are under the terms of their authors and of those sites.
+The Cứu Truyện extension in `app/extensions/cuutruyen` is Lynxx's own (MIT, like the app). Other extensions are not
+shipped with Lynxx: users install them from sources they choose, and Lynxx downloads nHentai from the reference repository
+(`Darkrai9x/vbook-extensions`) at the first start. Their scripts and the content of the sites they read are under the
+terms of their authors and of those sites.

@@ -637,14 +637,25 @@ function applyWindowIcon() {
 const outsideIconDir = () => path.join(userData(), 'icons');
 
 function desktopEntryPath() {
-  return path.join(os.homedir(), '.local', 'share', 'applications', `${DESKTOP_ID}.desktop`);
+  const dataHome = process.env.XDG_DATA_HOME && path.isAbsolute(process.env.XDG_DATA_HOME) ? process.env.XDG_DATA_HOME : path.join(os.homedir(), '.local', 'share');
+  return path.join(dataHome, 'applications', `${DESKTOP_ID}.desktop`);
+}
+
+// the program a launcher of this copy starts: for an AppImage the file the user runs ($APPIMAGE), process.execPath points
+// into its temporary mount
+const launcherProgram = () => process.env.APPIMAGE || process.execPath;
+
+function launcherExecProgram(text) {
+  // the first word of Exec= (quoted or not)
+  const line = (/^Exec=(.*)$/m.exec(text)?.[1] || '').trim();
+  const m = /^"((?:[^"\\]|\\.)*)"|^(\S+)/.exec(line);
+  if (!m) return '';
+  return m[1] !== undefined ? m[1].replace(/\\(.)/g, '$1') : m[2];
 }
 
 function launcherEntry(iconFile) {
-  // AppImage: process.execPath points into the temporary mount, $APPIMAGE is the file the user runs
   const quote = (s) => `"${String(s).replace(/(["`$\\])/g, '\\$1')}"`;
-  const exec = process.env.APPIMAGE ? quote(process.env.APPIMAGE)
-    : app.isPackaged ? quote(process.execPath) : `${quote(process.execPath)} ${quote(__dirname)}`;
+  const exec = app.isPackaged ? quote(launcherProgram()) : `${quote(process.execPath)} ${quote(__dirname)}`;
   return [
     '[Desktop Entry]', 'Type=Application', 'Name=Lynxx', 'Comment=Comic, novel and book reader', `Exec=${exec} %U`,
     `Icon=${iconFile}`, 'Terminal=false', 'Categories=Office;Viewer;Graphics;', `StartupWMClass=${DESKTOP_ID}`, LAUNCHER_MARKER, '',
@@ -672,25 +683,25 @@ async function writeLauncher() {
 
 async function installLauncher() {
   if (process.platform !== 'linux') return { ok: false, message: 'Chỉ cần trên Linux' };
+  if (!app.isPackaged) return { ok: false, message: 'Bản chạy từ mã nguồn không tạo launcher: menu ứng dụng sẽ mở bản này thay cho bản đã cài' };
   return { ok: true, path: await writeLauncher(), restartForDock: isWaylandLinux() };
 }
 
-async function launcherState() {
-  // 'missing' | 'ours' | 'foreign': a launcher written by something else (ex. AppImage integration tools) is never touched.
-  // Ours: the marker, or the entry older versions wrote without it
+async function syncLauncher() {
+  // -> 'unsupported' | 'skipped' | 'missing' | 'foreign' | 'other' | 'unchanged' | 'updated'
+  if (process.platform !== 'linux') return 'unsupported';
+  // a run from the source tree, a self-test or a scratch profile never touches the launcher: the app menu would then start
+  // that checkout (or show an icon from a folder that goes away) instead of the installed app
+  if (!app.isPackaged || process.env.LYNXX_SELFTEST_DIR || process.env.LYNXX_USER_DATA) return 'skipped';
   let text;
   try { text = await fsp.readFile(desktopEntryPath(), 'utf8'); } catch { return 'missing'; }
-  const ours = text.includes(LAUNCHER_MARKER) || (/^Name=Lynxx$/m.test(text) && /^Comment=Booru downloader$/m.test(text));
-  return ours ? 'ours' : 'foreign';
-}
-
-async function syncLauncher() {
-  // -> 'unsupported' | 'missing' | 'foreign' | 'unchanged' | 'updated'
-  if (process.platform !== 'linux') return 'unsupported';
-  const state = await launcherState();
-  if (state !== 'ours') return state;
-  const current = await fsp.readFile(desktopEntryPath(), 'utf8').catch(() => '');
-  if (current === launcherEntry(launcherIconFile()) && fs.existsSync(launcherIconFile())) return 'unchanged';
+  // a launcher written by something else (ex. AppImage integration tools) is never touched
+  if (!text.includes(LAUNCHER_MARKER)) return 'foreign';
+  // the launcher of another copy of Lynxx (an AppImage next to the deb, …) stays as it is; one pointing at a program that is
+  // gone (a moved or deleted AppImage) is taken over
+  const program = launcherExecProgram(text);
+  if (program && path.resolve(program) !== path.resolve(launcherProgram()) && fs.existsSync(program)) return 'other';
+  if (text === launcherEntry(launcherIconFile()) && fs.existsSync(launcherIconFile())) return 'unchanged';
   await writeLauncher();
   return 'updated';
 }
@@ -1018,7 +1029,10 @@ async function runSelfTest(dir) {
         // a refused call is the expected outcome: tools/check_selftest.py knows this step as ok: false on purpose
         notAllowed: { refused, ok: false },
       };
-      out.ok = out.appInfo.ok && out.formats.ok && refused.every((r) => /not allowed/.test(r));
+      // a self-test never rewrites the user's launcher (the app menu would start this copy instead of the installed one)
+      const launcher = await syncLauncher();
+      out.launcher = { state: launcher, ok: ['skipped', 'unsupported'].includes(launcher) };
+      out.ok = out.appInfo.ok && out.formats.ok && out.launcher.ok && refused.every((r) => /not allowed/.test(r));
       return out;
     });
     // the shell: only the Lynxx pages, the theme of the icon, nothing left of the booru app it was forked from
@@ -1146,6 +1160,8 @@ if (!app.requestSingleInstanceLock()) {
     });
     await applyProxyToSession();
     sidecar.start();
+    // nHentai and Cứu Truyện, downloaded from the reference repository (not in a self-test, nor in the test runs that opt out)
+    if (!process.env.LYNXX_SELFTEST_DIR && !process.env.LYNXX_NO_DEFAULT_EXTENSIONS) reader.installDefaultExtensions();
     setupMenu();
     createWindow();
     syncIcon({ startup: true }).catch(() => {}); // macOS dock, launcher / shortcuts written by an older version or another icon

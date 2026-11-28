@@ -8,7 +8,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { app, protocol, net, BrowserWindow } = require('electron');
+const { app, protocol, net, BrowserWindow, nativeImage } = require('electron');
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lynxx-smoke-'));
 app.setPath('userData', scratch);
@@ -78,6 +78,44 @@ app.whenReady().then(async () => {
     const spins = await Promise.all([1, 2, 3, 4].map(() => host.run(info.id, 'spin.js', [], { timeoutMs: 1500 })));
     const after = await host.run(info.id, 'toc.js', ['y'], { timeoutMs: 5000 });
     check('endless scripts time out, the next run still works', spins.every((r) => !r.ok && /giây/.test(r.error)) && after.ok, spins.map((r) => r.error).join(' / '));
+
+    // Graphics: a page served as shuffled strips is put back by an image script, drawn by the host's graphics window
+    const strip = (colors) => {
+      const w = 40; const h = 10 * colors.length; const buf = Buffer.alloc(w * h * 4);
+      colors.forEach((c, k) => { for (let y = k * 10; y < k * 10 + 10; y++) for (let x = 0; x < w; x++) buf.set(c, (y * w + x) * 4); });
+      return nativeImage.createFromBitmap(buf, { width: w, height: h });
+    };
+    const RED = [0, 0, 255, 255]; const GREEN = [0, 255, 0, 255]; const BLUE = [255, 0, 0, 255]; const WHITE = [255, 255, 255, 255]; // native order (BGRA)
+    const scrambled = strip([BLUE, WHITE, RED, GREEN]);
+    const order = [[0, 20, 40, 10, 0, 0, 40, 10], [0, 30, 40, 10, 0, 10, 40, 10], [0, 0, 40, 10, 0, 20, 40, 10], [0, 10, 40, 10, 0, 30, 40, 10]];
+    fs.writeFileSync(path.join(host.installedDir, info.id, 'src', 'image.js'), `function execute(url) {
+  var parts = url.split(' ');
+  var img = Graphics.createImage(parts[0]);
+  var canvas = Graphics.createCanvas(img.width, img.height);
+  JSON.parse(parts[1]).forEach(function (p) { canvas.drawImage(img, p[0], p[1], img.width, p[3], p[4], p[5], img.width, p[7]); });
+  return canvas.capture();
+}`);
+    host.cache.delete(info.id);
+    const sample = (b64) => { const im = nativeImage.createFromBuffer(Buffer.from(b64, 'base64')); const bm = im.toBitmap(); const { width } = im.getSize(); return [5, 15, 25, 35].map((y) => [...bm.subarray((y * width + 20) * 4, (y * width + 20) * 4 + 4)]); };
+    const near = (a, b, tol) => a.every((v, i) => Math.abs(v - b[i]) <= tol);
+    for (const [label, source, tol] of [['PNG', scrambled.toPNG(), 0], ['JPEG', scrambled.toJPEG(100), 40]]) {
+      try {
+        const out = await svc.image('image.js', `${source.toString('base64')} ${JSON.stringify(order)}`);
+        const px = sample(out);
+        check(`Graphics puts scrambled strips back (${label})`, [RED, GREEN, BLUE, WHITE].every((c, k) => near(px[k], c, tol)), JSON.stringify(px));
+      } catch (err) { check(`Graphics puts scrambled strips back (${label})`, false, err.message); }
+    }
+    const webpWin = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+    await webpWin.loadURL('about:blank');
+    const webpSrc = await webpWin.webContents.executeJavaScript(`(() => { const c = document.createElement('canvas'); c.width = 40; c.height = 40; const g = c.getContext('2d');
+      ['#00f', '#fff', '#f00', '#0f0'].forEach((col, k) => { g.fillStyle = col; g.fillRect(0, k * 10, 40, 10); }); return c.toDataURL('image/webp', 1).split(',')[1]; })()`);
+    webpWin.destroy();
+    try {
+      const out = await svc.image('image.js', `${webpSrc} ${JSON.stringify(order)}`);
+      check('Graphics reads WebP', [RED, GREEN, BLUE, WHITE].every((c, k) => near(sample(out)[k], c, 40)) && Buffer.from(out, 'base64')[0] === 0xff, `${out.length} chars`);
+    } catch (err) { check('Graphics reads WebP', false, err.message); }
+    const badImg = await host.run(info.id, 'image.js', ['PGh0bWw+ []'], { timeoutMs: 10000 });
+    check('Graphics refuses what is not an image', !badImg.ok && /not an image/.test(badImg.error), badImg.error);
 
     // export helpers
     const html = path.join(scratch, 'book.html');

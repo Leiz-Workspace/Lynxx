@@ -135,13 +135,86 @@ test('CryptoJS facade matches Node crypto (passphrase AES, keyed AES-CBC, hashes
   assert.strictEqual(r.data[5], crypto.createHmac('sha256', 'k').update('m').digest('hex'));
 });
 
-test('an extension that redraws images with Graphics is not downloadable', () => {
+// headers only: what Graphics.createImage reads (the pixels are drawn by the app, app/plugin/graphics.js)
+const IMG = {
+  png: (w, h) => { const b = Buffer.alloc(33); Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]).copy(b); b.write('IHDR', 12, 'latin1'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; },
+  jpeg: (w, h) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1'),
+    Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1])]),
+  webp: (w, h) => { const b = Buffer.alloc(30); b.write('RIFF', 0, 'latin1'); b.write('WEBPVP8X', 8, 'latin1'); b.writeUInt32LE(10, 16); b.writeUIntLE(w - 1, 24, 3); b.writeUIntLE(h - 1, 27, 3); return b; },
+  gif: (w, h) => { const b = Buffer.alloc(13); b.write('GIF89a', 0, 'latin1'); b.writeUInt16LE(w, 6); b.writeUInt16LE(h, 8); return b; },
+};
+
+test('Graphics: an extension that redraws images is downloadable', () => {
   const manifest = normalizeManifest({ metadata: { name: 'X', source: 'https://x.test', type: 'comic' }, script: { detail: 'detail.js', toc: 'toc.js', chap: 'chap.js' } });
   const files = { 'detail.js': 'function execute(u) {}', 'toc.js': 'function execute(u) {}', 'chap.js': 'function execute(u) {}' };
-  assert.strictEqual(capabilities(manifest, files).downloadable, true);
-  const drm = capabilities(manifest, { ...files, 'image.js': 'var c = Graphics.createCanvas(w, h);' });
-  assert.strictEqual(drm.graphics, true);
-  assert.strictEqual(drm.downloadable, false);
+  const caps = capabilities(manifest, { ...files, 'image.js': 'var c = Graphics.createCanvas(w, h);' });
+  assert.strictEqual(caps.graphics, true);
+  assert.strictEqual(caps.downloadable, true);
+});
+
+test('Graphics: image sizes from PNG / JPEG / WebP / GIF headers', () => {
+  for (const [type, make] of Object.entries(IMG)) assert.deepStrictEqual(R.imageSize(new Uint8Array(make(721, 1043))), { width: 721, height: 1043, type });
+  assert.strictEqual(R.imageSize(new Uint8Array(Buffer.from('<html>'))), null);
+});
+
+test('Graphics: an image script puts scrambled strips back (canvas recorded, drawn by the host)', () => {
+  // the shape of a comic site's image script: fetch the scrambled page, move horizontal strips, return capture()
+  const image = 'function execute(url) { var parts = url.split(" "); var r = fetch(parts[0]); if (!r.ok) return null;'
+    + ' var img = Graphics.createImage(r.base64()); var c = Graphics.createCanvas(img.width, img.height);'
+    + ' JSON.parse(parts[1]).forEach(function (p) { c.drawImage(img, p[0], p[1], img.width, p[3], p[4], p[5], img.width, p[7]); });'
+    + ' c.drawImage(img, 0, 0); c.drawImage(img, 1, 2, 3, 4); return c.capture(); }';
+  const jpeg = IMG.jpeg(800, 1200).toString('base64');
+  const host = fakeHost();
+  const calls = [];
+  host.request = (req) => ({ ok: true, status: 200, url: req.url, headers: { 'content-type': 'image/jpeg' }, body: jpeg });
+  host.graphics = (p) => { calls.push(p); return { data: 'RESULT', type: 'image/jpeg' }; };
+  const strips = [[0, 600, 800, 600, 0, 0, 800, 600], [0, 0, 800, 600, 0, 600, 800, 600]];
+  const r = run({ 'image.js': image }, 'image.js', [`https://img.test/p1.jpg ${JSON.stringify(strips)}`], {}, host);
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data, 'RESULT');
+  assert.strictEqual(calls.length, 1); // the size came from the header: one host call, the capture
+  assert.deepStrictEqual({ ...calls[0], images: calls[0].images.length }, {
+    op: 'compose', width: 800, height: 1200, images: 1, type: '', quality: 0,
+    draws: [[0, 0, 600, 800, 600, 0, 0, 800, 600], [0, 0, 0, 800, 600, 0, 600, 800, 600], [0, 0, 0, 800, 1200, 0, 0, 800, 1200], [0, 0, 0, 800, 1200, 1, 2, 3, 4]],
+  });
+  assert.strictEqual(calls[0].images[0], jpeg);
+});
+
+test('Graphics: wrong input is an error of the script, not a crash', () => {
+  const host = fakeHost();
+  host.graphics = (p) => (p.op === 'size' ? { error: 'not decodable' } : { error: 'boom' });
+  const bad = (src) => run({ 'a.js': `function execute() { ${src} }` }, 'a.js', [], {}, host);
+  assert.match(bad('Graphics.createImage("PGh0bWw+"); return 1;').error, /not an image \(not decodable\)/);
+  assert.match(bad('Graphics.createCanvas(0, 10); return 1;').error, /invalid size/);
+  assert.match(bad('Graphics.createCanvas(10, 10).drawImage({}, 0, 0); return 1;').error, /needs an image/);
+  assert.match(bad(`var i = Graphics.createImage("${IMG.png(4, 4).toString('base64')}"); var c = Graphics.createCanvas(4, 4); c.drawImage(i, "a", 0); return c.capture();`).error, /takes numbers/);
+  assert.match(bad(`var i = Graphics.createImage("${IMG.png(4, 4).toString('base64')}"); var c = Graphics.createCanvas(4, 4); c.drawImage(i, 0, 0); return c.capture();`).error, /Graphics capture: boom/);
+});
+
+test('Graphics: the host checks what it is asked to draw', () => {
+  const { composeJob } = require('../plugin/graphics.js');
+  const png = IMG.png(2, 2).toString('base64');
+  const job = composeJob({ width: 10, height: 20, images: [png], draws: [[0, 0, 0, 2, 2, 0, 0, 10, 20]] });
+  assert.strictEqual(job.type, 'image/png'); // a PNG source stays PNG (transparency)
+  assert.strictEqual(composeJob({ width: 1, height: 1, images: [IMG.jpeg(1, 1).toString('base64')], draws: [] }).type, 'image/jpeg');
+  assert.strictEqual(composeJob({ width: 1, height: 1, images: [png], draws: [], type: 'webp', quality: 0.5 }).type, 'image/webp');
+  assert.throws(() => composeJob({ width: 20000, height: 1, images: [], draws: [] }), /kích thước/);
+  assert.throws(() => composeJob({ width: 1, height: 1, images: ['not base64!'], draws: [] }), /base64/);
+  assert.throws(() => composeJob({ width: 1, height: 1, images: [png], draws: [[1, 0, 0, 1, 1, 0, 0, 1, 1]] }), /lệnh vẽ/);
+  assert.throws(() => composeJob({ width: 1, height: 1, images: [png], draws: [[0, 0, 0, 1, 1, 0, 0, 1]] }), /lệnh vẽ/);
+});
+
+test('service: the link of a page drawn by an image script is passed to the script as it is', async () => {
+  const manifest = normalizeManifest({ metadata: { name: 'S', source: 'https://s.test', type: 'comic' }, script: { detail: 'detail.js', toc: 'toc.js', chap: 'chap.js' } });
+  const files = {
+    'detail.js': 'function execute(u) {}', 'toc.js': 'function execute(u) {}',
+    'chap.js': 'function execute(u) { return Response.success([{ link: "https://img.s.test/1.jpg [[0,1,2,3]]", script: "image.js" }, "/p/2.jpg", { link: "/p/3.jpg#script=img.js" }]); }',
+    'image.js': 'function execute(u) { return "B64:" + u; }',
+  };
+  const svc = createService({ manifest, capabilities: capabilities(manifest, files), runner: async (entry, args) => run(files, entry, args) });
+  const chap = await svc.chap('https://s.test/c/1');
+  assert.deepStrictEqual(chap.images.map((i) => [i.url, i.script]), [['https://img.s.test/1.jpg [[0,1,2,3]]', 'image.js'], ['https://s.test/p/2.jpg', ''], ['/p/3.jpg', 'img.js']]);
+  assert.strictEqual(await svc.image('image.js', chap.images[0].url), 'B64:https://img.s.test/1.jpg [[0,1,2,3]]');
 });
 
 test('service: detail/toc/chap normalization (comic)', async () => {
@@ -164,6 +237,54 @@ test('service: detail/toc/chap normalization (comic)', async () => {
   assert.ok(regexMatches(manifest, 'https://site.test/book/12/'));
   assert.ok(!regexMatches(manifest, 'https://site.test/book/12/c1'));
   assert.match(pluginId(manifest.metadata), /^site-[0-9a-f]{8}$/);
+});
+
+test('bundled Cứu Truyện: lists, detail, toc, pages put back from drm_data (offline)', async () => {
+  const path = require('path');
+  const { readPackageDir } = require('../plugin/package.js');
+  const pkg = readPackageDir(path.join(__dirname, '..', 'extensions', 'cuutruyen'));
+  const caps = capabilities(pkg.manifest, pkg.files);
+  assert.ok(caps.downloadable && caps.graphics && caps.genre && caps.search, JSON.stringify(caps));
+  const old = 'https://storage-ct.lrclib.net/file/cuutruyen/uploads';
+  // drm_data of a real page (1024x1457): "#v4|750-150|1200-150|150-150|600-150|450-150|300-150|900-150|1350-107|1050-150|0-150"
+  const drm = 'EEcATQIMAhsEBgVECAUJAx4AAQFJCAcGGAIACEUBCQMeAAEBSQ0HBhgCAAhF\nBAkDHgABAUkAAgYYAgAIRQYKBgMcBQECRQMGAAMYCQwHRQMeAAEB\n';
+  const API = {
+    '/mangas/recently_updated?page=2&per_page=24': { data: [{ id: 7, name: 'Truyện A', cover_url: `${old}/manga/7/cover/a.jpg`, newest_chapter_number: '12' }], _metadata: { current_page: 2, total_pages: 3 } },
+    '/tags/romcom?page=1&per_page=24': { data: { mangas: [{ id: 8, name: 'Truyện B', cover_url: `${old}/manga/8/b.jpg` }], tag: { name: 'romcom' } }, _metadata: { current_page: 1, total_pages: 1 } },
+    '/mangas/search?q=th%E1%BB%AD&page=1&per_page=24': { data: [{ id: 9, name: 'Thử', cover_url: 'https://storage-ct-riften.site/c.jpg', author_name: 'X' }], _metadata: { current_page: 1, total_pages: 1 } },
+    '/mangas/7': { data: { id: 7, name: 'Truyện A', cover_url: `${old}/manga/7/cover/a.jpg`, author: { name: 'Tác giả' }, team: { name: 'Nhóm' }, chapters_count: 2, full_description: '<p>Mô tả</p>', tags: [{ name: 'hài hước', slug: 'hai-huoc' }, { name: 'đang tiến hành', slug: 'dang-tien-hanh' }] } },
+    '/mangas/7/chapters': { data: [{ id: 102, order: 1, number: '2', name: 'Kết' }, { id: 101, order: 0, number: '1', name: null }] },
+    '/chapters/101': { data: { pages: [{ order: 1, image_url: `${old}/page/2/plain.jpg`, drm_data: '' }, { order: 0, image_url: `${old}/page/1/scrambled.jpg`, drm_data: drm }] } },
+  };
+  const header = IMG.jpeg(1024, 1457).toString('base64');
+  const draws = [];
+  const host = fakeHost();
+  host.request = (req) => {
+    if (/^https:\/\/storage-bravo\.cuutruyen\.net\//.test(req.url)) return { ok: true, status: 200, url: req.url, headers: { 'content-type': 'image/jpeg' }, body: header };
+    const json = API[req.url.replace('https://cuutruyen.net/api/v2', '')];
+    return json ? { ok: true, status: 200, url: req.url, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(json)).toString('base64') } : { ok: false, status: 404, url: req.url, headers: {}, body: '' };
+  };
+  host.graphics = (p) => { draws.push(p); return { data: 'PAGE', type: 'image/jpeg' }; };
+  const svc = createService({ manifest: pkg.manifest, capabilities: caps, runner: async (entry, args) => run(pkg.files, entry, args, { source: pkg.manifest.metadata.source }, host) });
+  assert.strictEqual((await svc.home()).length, 4);
+  const genres = await svc.genre();
+  assert.ok(genres.length >= 20 && genres.every((g) => g.script === 'tag.js' && /^\/tags\/[a-z-]+$/.test(g.input)));
+  const list = await svc.list('list.js', '/mangas/recently_updated', '2');
+  assert.deepStrictEqual(list, { next: '3', items: [{ name: 'Truyện A', link: 'https://cuutruyen.net/mangas/7', cover: 'https://storage-bravo.cuutruyen.net/file/cuutruyen/uploads/manga/7/cover/a.jpg', coverReferrerPolicy: '', description: 'Chương 12', tag: '', host: 'https://cuutruyen.net' }] });
+  assert.strictEqual((await svc.list('tag.js', '/tags/romcom', '')).items[0].name, 'Truyện B');
+  const found = await svc.search('thử', '');
+  assert.strictEqual(found.items[0].cover, 'https://storage-charlie.cuutruyen.net/c.jpg');
+  const detail = await svc.detail('https://cuutruyen.net/mangas/7');
+  assert.deepStrictEqual([detail.name, detail.author, detail.description, detail.ongoing, detail.genres], ['Truyện A', 'Tác giả', 'Mô tả', true, ['hài hước', 'đang tiến hành']]);
+  const toc = await svc.toc('https://cuutruyen.net/mangas/7');
+  assert.deepStrictEqual(toc.map((c) => [c.name, c.url]), [['Chương 1', 'https://cuutruyen.net/mangas/7/chapters/101'], ['Chương 2: Kết', 'https://cuutruyen.net/mangas/7/chapters/102']]);
+  const chap = await svc.chap(toc[0].url);
+  assert.deepStrictEqual(chap.images.map((i) => i.script), ['image.js', '']);
+  assert.strictEqual(chap.images[1].url, 'https://storage-bravo.cuutruyen.net/file/cuutruyen/uploads/page/2/plain.jpg');
+  assert.strictEqual(await svc.image('image.js', chap.images[0].url), 'PAGE');
+  const rows = [[0, 750, 150], [150, 1200, 150], [300, 150, 150], [450, 600, 150], [600, 450, 150], [750, 300, 150], [900, 900, 150], [1050, 1350, 107], [1157, 1050, 150], [1307, 0, 150]];
+  assert.deepStrictEqual(draws[0].draws, rows.map(([sy, dy, h]) => [0, 0, sy, 1024, h, 0, dy, 1024, h]));
+  assert.deepStrictEqual([draws[0].width, draws[0].height], [1024, 1457]);
 });
 
 test('htmlToText keeps paragraphs', () => {

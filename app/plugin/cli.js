@@ -115,6 +115,8 @@ const host = {
   },
   browser() { return { error: 'Engine.newBrowser() cần app Lynxx (cửa sổ Chromium ẩn); CLI không có trình duyệt' }; },
   crypto: (op, a) => cryptoOp(op, a),
+  // Graphics.createImage reads sizes from the file header; drawing needs Chromium's canvas (the app)
+  graphics: (p) => ({ error: p && p.op === 'size' ? 'định dạng ảnh không đọc được trong CLI' : 'CLI không ghép ảnh (Graphics chỉ vẽ trong app)' }),
 };
 
 const ctx = { source: pkg.manifest.metadata.source, config, cache };
@@ -141,7 +143,7 @@ function check() {
       new Function(R.inlineLoads(pkg.files, name));
     } catch (err) { problems.push(`src/${name}: lỗi cú pháp: ${err.message}`); }
     if (/\bJava\.type\b|\bjava\.|\bPackages\./.test(source)) problems.push(`src/${name}: dùng Java interop (không có trong Lynxx)`);
-    if (/\bGraphics\./.test(source)) warnings.push(`src/${name}: dùng Graphics (Lynxx không hỗ trợ)`);
+    if (/\bGraphics\./.test(source)) warnings.push(`src/${name}: dùng Graphics (chỉ vẽ được trong app, CLI không ghép ảnh)`);
     if (/\bEngine\.newBrowser\b/.test(source)) warnings.push(`src/${name}: dùng Engine.newBrowser (chỉ chạy trong app, CLI không thử được)`);
     if (/\bfunction\s+execute\s*\(/.test(source) === false && Object.values(pkg.manifest.script).includes(name)) problems.push(`src/${name}: không có function execute(...)`);
   }

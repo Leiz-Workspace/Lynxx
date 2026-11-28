@@ -8,7 +8,8 @@ const { spawnSync } = require('node:child_process');
 
 const app = path.resolve(__dirname, '..');
 const inDir = (dir) => fs.readdirSync(path.join(app, dir)).filter((f) => f.endsWith('.js')).sort().map((f) => path.join(dir, f));
-const files = ['main.js', 'preload.js', 'icon-utils.js', ...inDir('renderer'), ...inDir('plugin')];
+const bundled = fs.readdirSync(path.join(app, 'extensions')).sort().flatMap((ext) => inDir(path.join('extensions', ext, 'src')));
+const files = ['main.js', 'preload.js', 'icon-utils.js', ...inDir('renderer'), ...inDir('plugin'), ...bundled];
 
 let failed = 0;
 for (const file of files) {

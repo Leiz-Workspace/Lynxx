@@ -32,6 +32,7 @@
       "icon-utils.js",
       "package.json",
       "plugin/**/*",
+      "extensions/**/*",
       "renderer/**/*",
       "assets/**/*"
     ],

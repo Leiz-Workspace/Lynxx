@@ -38,15 +38,22 @@ Lynxx tải, đọc và xuất truyện tranh, truyện chữ và sách:
 home, genre, search, detail, page, toc, chap…; `config`: hằng số người dùng chỉnh được). `src/*.js` ở cấp đầu của `src/`.
 id = slug(name) + 8 hex của sha256(name + source): cập nhật cùng extension giữ id, storage và collection.
 
-Không chạy: `metadata.encrypt = true` (khoá giải mã không công khai); extension vẽ lại ảnh bằng `Graphics` (thường để gỡ ảnh
-site xáo trộn / DRM, ví dụ Cứu Truyện: Lynxx không gỡ DRM); loại `tts`, `translate`, `audio`, `video`, `news`, `forum`, `ai`.
+Không chạy: `metadata.encrypt = true` (khoá giải mã không công khai); loại `tts`, `translate`, `audio`, `video`, `news`,
+`forum`, `ai`. Extension vẽ lại ảnh bằng `Graphics` (ví dụ trang truyện bị site cắt thành dải xáo trộn) chạy được (mục 3.3).
 
 ### 3.2 Cài đặt
 
 Từ thư mục, `plugin.zip`, link, hoặc kho (JSON `{metadata, data: [{name, version, type, path, icon, …}]}`). Mọi cách đều
 qua hộp thoại xác nhận của main. Kho có sẵn từ lần mở đầu (thêm một lần, người dùng xoá thì không thêm lại): kho tổng của
 vbookext.me (`https://www.vbookext.me/api/plugin.json`, vài trăm nguồn truyện chữ / truyện tranh) và kho tham chiếu
-`Darkrai9x/vbook-extensions`. Lynxx không cài sẵn extension nào. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
+`Darkrai9x/vbook-extensions`.
+
+Extension mặc định, cài một lần ở lần mở đầu (người dùng gỡ thì không cài lại; cài lỗi thì thử lại ở lần mở sau):
+**nHentai** tải từ kho tham chiếu (file phát hành không chứa nó) và **Cứu Truyện** của Lynxx (`app/extensions/cuutruyen`,
+đi kèm app; app mới mang bản mới hơn thì cập nhật bản đã cài từ app). Extension Cứu Truyện chính thức (v5) hỏng từ phía
+nguồn: API trả link ảnh trên host cũ `storage-ct.lrclib.net` (không còn DNS), còn trình đọc của trang tự đổi sang
+`storage-bravo.cuutruyen.net`; extension của Lynxx đổi host như trang, giải `drm_data` (base64 XOR khoá của trình đọc →
+`#v4|dy-cao|…`) rồi xếp lại các dải bằng `Graphics`. Một số nhà mạng chặn `cuutruyen.net` theo SNI. File zip do sidecar giải nén (`plugins.unpack`): chỉ nhận `plugin.json`, `icon.png`,
 `src/*.js`, chặn traversal, symlink, file mã hoá, ≤ 10 MB/file, ≤ 60 MB tổng. Gói được kiểm tra rồi chép vào
 `<data>/plugins/installed/<id>/` bằng thư mục staging + rename.
 
@@ -57,7 +64,12 @@ vbookext.me (`https://www.vbookext.me/api/plugin.json`, vài trăm nguồn truy�
 - Pool tối đa 3 cửa sổ, tái tạo sau 200 lần chạy; mỗi lần chạy tối đa 120 giây (quá hạn: huỷ cả renderer).
 - Script gọi API đồng bộ → preload `ipcRenderer.sendSync('plugin-sandbox:sync', op, payload)` → main kiểm tra sender
   thuộc pool rồi xử lý: `request`, `sleep` (≤ 30 s), `storage` (JSON theo extension, ≤ 2 MB), `cookie`, `browser`
-  (`Engine.newBrowser`: cửa sổ ẩn trong partition extension, tối đa 2 mỗi lần chạy), `crypto` (Node crypto).
+  (`Engine.newBrowser`: cửa sổ ẩn trong partition extension, tối đa 2 mỗi lần chạy), `crypto` (Node crypto), `graphics`.
+- `Graphics` (`app/plugin/graphics.js`): `createImage(base64)` đọc kích thước từ header ảnh (PNG, JPEG, GIF, WebP, BMP; định
+  dạng khác thì main giải mã), `createCanvas(w, h)` (≤ 16384 mỗi chiều, ≤ 64 MP), `drawImage` 3 / 5 / 9 tham số như canvas,
+  `capture([type, quality])` → base64. Script chỉ ghi lại lệnh vẽ; `capture` là một lệnh `graphics` gửi ảnh và số sang một
+  cửa sổ ẩn riêng (partition không mạng, không chạy code extension) vẽ bằng decoder và canvas của Chromium. Ảnh ra: PNG nếu
+  ảnh nguồn đầu là PNG, còn lại JPEG 0.92 (nền trắng). Link trang có `script` được truyền nguyên văn cho script ảnh.
 - HTTP: chỉ http(s); mọi bước redirect qua `assertPublicHost` (chặn loopback, mạng nội bộ, link-local); cookie của
   partition `persist:lynxx-plugins` gửi/lưu thủ công; ≥ 250 ms giữa hai request cùng host; 429/503 có `Retry-After`
   ≤ 60 s thì chờ và thử lại tối đa 2 lần; thân ≤ 32 MB; timeout mặc định 120 s.
@@ -138,6 +150,6 @@ chương. PDF truyện chữ: HTML một file → `printToPDF` (A5, outline từ
 
 ## 9. Không làm
 
-- Giải mã/unscramble ảnh có DRM, vượt CAPTCHA hay anti-bot (extension dùng `Graphics` không chạy được).
+- Vượt CAPTCHA hay anti-bot.
 - Mở khoá chương VIP/trả phí (chương `lock`/`pay` chỉ được liệt kê).
 - Model khôi phục vùng bị che trong nội dung tình dục (`lynxx/uncen.py` chỉ có contract an toàn).

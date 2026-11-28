@@ -59,15 +59,22 @@
 - **Self-test mới cho bản đóng gói**: sidecar, RPC được phép / bị chặn, các trang và theme, nhập → đọc → xuất EPUB,
   extension trong sandbox đóng gói, hỏi lại khi thoát lúc còn lượt tải.
 
+### Sau 1.0.3 (2026-11-29)
+- **Graphics cho extension**: `Graphics.createImage` / `createCanvas` / `drawImage` / `capture` (vẽ trong cửa sổ ẩn riêng
+  của main, không mạng); extension vẽ lại ảnh không còn bị đánh dấu "chưa hỗ trợ".
+- **Extension mặc định**: nHentai (tải từ kho tham chiếu ở lần mở đầu) và Cứu Truyện của Lynxx (`app/extensions/cuutruyen`,
+  đi kèm app: đổi host ảnh như trình đọc của trang, giải `drm_data`, xếp lại dải ảnh). Đã chạy thật trọn luồng trang chủ →
+  thể loại → tìm → chi tiết → mục lục → 45 trang của một chương.
+- **Launcher Linux**: bản chạy từ mã nguồn, self-test hay hồ sơ thử không ghi `~/.local/share/applications/lynxx.desktop`
+  nữa (một lần chạy thử đã trỏ launcher của máy sang Electron dev, nên nhấn icon không mở được app); launcher của một bản
+  Lynxx khác (AppImage cạnh bản cài) được giữ nguyên.
+
 ## Chưa làm / còn lại
 
-- **nhentai live (mục 6)**: vẫn `expired_review` trong policy adapter dựng sẵn. Extension do người dùng cài đi
-  theo đường extension (người dùng xác nhận khi cài, chịu trách nhiệm về quyền tải).
+- **nhentai (mục 6)**: adapter Python dựng sẵn vẫn `expired_review` và không dùng; nHentai chạy qua extension mặc định.
 
 ## Cố ý không làm
 
-- **cuutruyen (mục 7)**: không giải `drm_data`, không unscramble ảnh, không gọi image host bị robots chặn. Runtime
-  Lynxx không cung cấp `Graphics` nên extension dùng canvas để unscramble cũng không chạy.
 - **Model uncen (mục 8)**: không xây model khôi phục vùng bị che trong nội dung tình dục; `lynxx/uncen.py` chỉ là
   safety contract.
 - **Extension mã hoá** (`metadata.encrypt`): khoá giải mã không công khai, Lynxx không cố phá.

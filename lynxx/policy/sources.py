@@ -45,7 +45,7 @@ SOURCES = (
         "https://cuutruyen.net/",
         SourcePolicy(
             "cuutruyen", ("cuutruyen.net", "*.cuutruyen.net"), PolicyState.BLOCKED,
-            reason="Nguồn có route DRM/scrambled và image host bị robots từ chối; Lynxx không bypass",
+            reason="Adapter Python không dùng: Cứu Truyện chạy qua extension đi kèm app (app/extensions/cuutruyen)",
         ),
         frozenset(),
     ),
