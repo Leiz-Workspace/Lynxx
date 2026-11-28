@@ -12,7 +12,7 @@
   "scripts": {
     "start": "electron .",
     "start:debug": "electron . --enable-logging --lynxx-devtools",
-    "check": "node --check main.js && node --check preload.js && node --check icon-utils.js && node --check renderer/app.js && node --check renderer/books.js && node --check renderer/mock.js && for f in plugin/*.js; do node --check \"$f\" || exit 1; done && node test/icon-utils.test.js && node test/plugin-runtime.test.js && node test/book-jobs.test.js",
+    "check": "node test/syntax-check.js && node test/icon-utils.test.js && node test/plugin-runtime.test.js && node test/book-jobs.test.js",
     "check:core": "node -e \"if (!require('fs').existsSync('build/core/lynxx-core')) { console.error('frozen core missing: run python tools/build_core.py in the repo root first'); process.exit(1); }\"",
     "dist": "npm run check:core && electron-builder --publish never",
     "dist:dir": "npm run check:core && electron-builder --dir --publish never"

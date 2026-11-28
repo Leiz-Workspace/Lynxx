@@ -22,6 +22,8 @@ on:
       - opened
       - reopened
       - synchronize
+  # GitHub creates no push events for this repository any more (see docs/operations.md): the tests can be run by hand
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -64,7 +66,7 @@ jobs:
           node app/test/icon-utils.test.js
           node app/test/plugin-runtime.test.js
           node app/test/book-jobs.test.js
-          for f in app/plugin/*.js app/renderer/*.js app/main.js app/preload.js app/icon-utils.js; do node --check "$f"; done
+          node app/test/syntax-check.js
 
   # the one check the ruleset of develop, staging and production requires: every job of the matrix passed
   passed:
