@@ -1875,6 +1875,8 @@ const proxyHasLogin = (c) => Boolean(c.proxy && !c.ignoreProxy && /^[a-z0-9]+:\/
 
 async function applyProxyToSession() {
   await session.defaultSession.setProxy(proxyConfig(settings.connection));
+  // extensions' own session (persist:lynxx-plugins): their requests and page downloads follow the same proxy
+  await reader?.host?.setProxy(proxyConfig(settings.connection));
 }
 
 // ---------- site verification ("Xác minh trong Lynxx") ----------
@@ -2942,6 +2944,12 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  // the extension sandbox keeps hidden windows: without this, closing the app window would never fire window-all-closed
+  mainWindow.on('closed', () => {
+    reader?.shutdown();
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.destroy();
+    mainWindow = null;
   });
   // dropping a file/link or any script navigation must never replace the app page (preload would expose window.lynxx)
   mainWindow.webContents.on('will-navigate', (e, url) => { if (url !== RENDERER_URL) e.preventDefault(); });
@@ -4899,7 +4907,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
+    if (mainWindow && !mainWindow.isDestroyed()) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
   });
   app.whenReady().then(async () => {
     loadSettings();

@@ -203,6 +203,25 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class ImportManyTests(unittest.TestCase):
+    def test_several_local_files_in_one_library(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            db = LibraryDB(root / "db.sqlite")
+            pages = []
+            for i in range(2):
+                page = root / f"p{i}.png"
+                page.write_bytes(png())
+                pages.append(page)
+            pdf = write_image_pdf(pages, root / "a.pdf")
+            text = root / "b.txt"
+            text.write_text("Chương 1\nmột\nChương 2\nhai", encoding="utf-8")
+            ids = {str(import_document(path, root / "lib", db)["collectionId"]) for path in (pdf, text, text, pdf)}
+            self.assertEqual(len(ids), 4)
+            self.assertEqual(len(books.list_collections(db, root / "lib")), 4)
+            db.close()
+
+
 class SniffFormatTests(unittest.TestCase):
     """The registry trusts the bytes over the extension (".doc" files that are web pages, RTF or plain text)."""
 

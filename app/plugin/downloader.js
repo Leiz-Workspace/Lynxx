@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { htmlToText } = require('./service.js');
 const H = require('./html.js');
 
@@ -318,11 +319,11 @@ class BookJobs {
       await fsp.writeFile(dest, buf);
       return { path: dest, bytes: buf.length };
     }
-    const tmp = `${stem}.download`;
     const urls = [image.url, ...(image.fallback || [])];
     let lastError = null;
-    for (const [which, url] of urls.entries()) {
-      if (which > 0) await fsp.rm(`${tmp}.part`, { force: true }); // a partial file of another URL is not resumed
+    for (const url of urls) {
+      // the partial file is named after its URL: a .part of a fallback link is never resumed against another link
+      const tmp = `${stem}.${crypto.createHash('sha1').update(url).digest('hex').slice(0, 12)}.download`;
       for (let attempt = 0; attempt < PAGE_RETRIES; attempt++) {
         this.check(job);
         try {

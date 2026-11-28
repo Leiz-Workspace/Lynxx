@@ -12,14 +12,19 @@ const { net } = require('electron');
 
 const MAX_BODY = 32 * 1024 * 1024;
 const MAX_REDIRECTS = 10;
-const DEFAULT_TIMEOUT = 120000;
-const RETRY_AFTER_MAX_MS = 60000;
-const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'connection', 'transfer-encoding', 'keep-alive', 'upgrade', 'te', 'trailer', 'expect', 'proxy-connection']);
+const DEFAULT_TIMEOUT = 45000; // well below the 120 s a whole script run may take
+const RETRY_AFTER_MAX_MS = 60000; // page downloads
+const RETRY_AFTER_SCRIPT_MAX_MS = 20000; // requests made by a running script
+// net.request fails the whole request on these (ERR_INVALID_ARGUMENT, checked with Electron 45; see main.js upstreamHeaders)
+const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'connection', 'transfer-encoding', 'keep-alive', 'upgrade', 'te', 'trailer', 'expect',
+  'cookie2', 'x-http-method', 'x-http-method-override', 'x-method-override']);
+const forbiddenHeader = (name) => FORBIDDEN_HEADERS.has(name) || name.startsWith('proxy-');
 
 const sleep = (ms, signal) => new Promise((resolve, reject) => {
   if (signal?.aborted) { reject(new Error('cancelled')); return; }
-  const t = setTimeout(resolve, ms);
-  signal?.addEventListener('abort', () => { clearTimeout(t); reject(new Error('cancelled')); }, { once: true });
+  const onAbort = () => { clearTimeout(t); reject(new Error('cancelled')); };
+  const t = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+  signal?.addEventListener('abort', onAbort, { once: true });
 });
 
 function parseRetryAfter(value) {
@@ -94,7 +99,7 @@ class PluginHttp {
     for (const [k, v] of Object.entries(given || {})) {
       const key = String(k).trim();
       const lk = key.toLowerCase();
-      if (!key || FORBIDDEN_HEADERS.has(lk) || v === undefined || v === null) continue;
+      if (!key || forbiddenHeader(lk) || v === undefined || v === null) continue;
       if (lk === 'cookie') { ownCookie = String(v); continue; }
       if (lower.has(lk)) delete headers[lower.get(lk)];
       headers[key] = String(v);
@@ -185,7 +190,7 @@ class PluginHttp {
         const status = res.statusCode;
         if ((status === 429 || status === 503) && attempts < 2) {
           const wait = parseRetryAfter(res.headers['retry-after']);
-          if (wait > 0 && wait <= RETRY_AFTER_MAX_MS) {
+          if (wait > 0 && wait <= RETRY_AFTER_SCRIPT_MAX_MS) {
             attempts += 1;
             this.nextSlot.set(host, Date.now() + wait);
             await sleep(wait, ctl.signal);

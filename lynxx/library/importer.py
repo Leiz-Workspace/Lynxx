@@ -39,7 +39,8 @@ def import_pdf(original: Path, library_root: Path, db: LibraryDB, title: str = "
     now = _now()
     display_title = title.strip() or original.stem
     with db.connection:
-        db.create_collection(collection_id, display_title, metadata_json='{"sourceFormat": "pdf"}', created_at=now, updated_at=now, kind="document")
+        db.create_collection(collection_id, display_title, source_id="local", remote_id=collection_id, metadata_json='{"sourceFormat": "pdf"}',
+                             created_at=now, updated_at=now, kind="document")
         db.create_chapter(chapter_id, collection_id, display_title, "pdf", "ready", created_at=now, updated_at=now, content_path=str(destination))
         db.create_artifact(artifact_id, chapter_id, "original", str(destination), "application/pdf", size, digest, "ready", now)
     return {"collectionId": collection_id, "chapterId": chapter_id, "artifactId": artifact_id, "path": str(destination), "kind": "pdf",

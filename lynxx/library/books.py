@@ -337,8 +337,9 @@ def store_document(db: LibraryDB, root: Path, document: Document, *, original: P
         display = (title or document.title or (original.stem if original else "") or "Tài liệu")[:MAX_TITLE]
         original_info: dict[str, Any] = {}
         with db.connection:
-            db.create_collection(collection_id, display, metadata_json=json.dumps(meta, ensure_ascii=False), created_at=stamp, updated_at=stamp,
-                                 kind=kind, cover_path=cover_path)
+            # local files: (source_id, remote_id) is unique per collection, never the empty pair every import would share
+            db.create_collection(collection_id, display, source_id="local", remote_id=collection_id, metadata_json=json.dumps(meta, ensure_ascii=False),
+                                 created_at=stamp, updated_at=stamp, kind=kind, cover_path=cover_path)
             for position, (chapter_id, chapter_title, content_kind, content_path, count, page_rows) in enumerate(chapter_rows):
                 pending = content_kind == "image" and not content_path
                 db.create_chapter(chapter_id, collection_id, (chapter_title or f"Phần {position + 1}")[:300], content_kind, "pending" if pending else "ready",

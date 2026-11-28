@@ -73,6 +73,11 @@ app.whenReady().then(async () => {
     check('cookie bridge', cookieType === 'string');
     const loop = await host.run(info.id, 'toc.js', ['x'], { timeoutMs: 3000 });
     check('run returns', loop.ok);
+    fs.writeFileSync(path.join(host.installedDir, info.id, 'src', 'spin.js'), 'function execute() { for (;;) {} }');
+    host.cache.delete(info.id);
+    const spins = await Promise.all([1, 2, 3, 4].map(() => host.run(info.id, 'spin.js', [], { timeoutMs: 1500 })));
+    const after = await host.run(info.id, 'toc.js', ['y'], { timeoutMs: 5000 });
+    check('endless scripts time out, the next run still works', spins.every((r) => !r.ok && /giây/.test(r.error)) && after.ok, spins.map((r) => r.error).join(' / '));
 
     // export helpers
     const html = path.join(scratch, 'book.html');

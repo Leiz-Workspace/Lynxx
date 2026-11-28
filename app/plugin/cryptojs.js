@@ -111,7 +111,9 @@
     };
     const hmac = (alg) => (msg, key) => call('hmac', { alg, key: bytesToB64(toBytes(asWA(key))), data: bytesToB64(toBytes(asWA(msg))) });
 
-    const algos = { MD5: hash('md5'), SHA1: hash('sha1'), SHA224: hash('sha224'), SHA256: hash('sha256'), SHA384: hash('sha384'), SHA512: hash('sha512'), SHA3: hash('sha3-512'), RIPEMD160: hash('ripemd160') };
+    // CryptoJS.SHA3 is Keccak with the pre-FIPS padding: neither Node's sha3-512 nor Electron's BoringSSL computes it
+    const noSha3 = () => { throw new Error('CryptoJS.SHA3 (Keccak) is not supported by Lynxx'); };
+    const algos = { MD5: hash('md5'), SHA1: hash('sha1'), SHA224: hash('sha224'), SHA256: hash('sha256'), SHA384: hash('sha384'), SHA512: hash('sha512'), SHA3: noSha3, RIPEMD160: hash('ripemd160') };
     const hasherName = (h) => (h && h.algName) || (typeof h === 'string' ? h : 'sha256');
 
     function evpKdf(password, salt, keySizeWords, ivSizeWords, hasher = algos.MD5, iterations = 1) {
@@ -213,7 +215,7 @@
       pad,
       algo: { MD5: algos.MD5, SHA1: algos.SHA1, SHA256: algos.SHA256, SHA512: algos.SHA512, SHA224: algos.SHA224, SHA384: algos.SHA384, SHA3: algos.SHA3, RIPEMD160: algos.RIPEMD160, AES, DES: makeCipher('des', 2, 8), TripleDES: makeCipher('des3', 6, 8) },
       ...algos,
-      HmacMD5: hmac('md5'), HmacSHA1: hmac('sha1'), HmacSHA224: hmac('sha224'), HmacSHA256: hmac('sha256'), HmacSHA384: hmac('sha384'), HmacSHA512: hmac('sha512'), HmacSHA3: hmac('sha3-512'), HmacRIPEMD160: hmac('ripemd160'),
+      HmacMD5: hmac('md5'), HmacSHA1: hmac('sha1'), HmacSHA224: hmac('sha224'), HmacSHA256: hmac('sha256'), HmacSHA384: hmac('sha384'), HmacSHA512: hmac('sha512'), HmacSHA3: noSha3, HmacRIPEMD160: hmac('ripemd160'),
       PBKDF2: (password, salt, cfg = {}) => call('pbkdf2', {
         password: bytesToB64(toBytes(asWA(password))), salt: bytesToB64(toBytes(asWA(salt))), iterations: Math.max(1, Math.min(10000000, cfg.iterations || 250000)),
         keylen: (cfg.keySize || 4) * 4, digest: hasherName(cfg.hasher || algos.SHA256),

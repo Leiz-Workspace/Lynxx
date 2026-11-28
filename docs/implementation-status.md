@@ -35,6 +35,12 @@
 - **Skill `new-site-extension` (mục 10, 12)**: chế độ mặc định tạo extension vBook (template comic/novel, tham chiếu
   API, checklist, quy tắc V1–V8), thử bằng `node app/plugin/cli.js`; chế độ booru cũ chuyển sang `reference/booru.md`.
   Skill nằm trong `.claude/` (bị `.gitignore`), đã cập nhật ở repo chính.
+- **Kiểm chứng trong Electron 45.2.1**: `app/test/electron-smoke.js` (sandbox + cầu nối đồng bộ, HTTP thật, timeout,
+  printToPDF, WebP→JPEG, `lynxx-lib://`) và `app/test/electron-e2e.js` (sidecar Python thật, site giả: cài extension,
+  job tải, thư viện, reader, xuất EPUB/KEPUB/CBZ/PDF, cập nhật chương mới) đều pass; app đầy đủ khởi động, mở được EPUB
+  mẫu của vBook và PDF trong Reader, thoát đúng khi đóng cửa sổ. Một review độc lập phần main process đã được sửa hết
+  (thoát app khi còn cửa sổ sandbox, timeout không ảnh hưởng script kế tiếp, renderer không tự chọn đường dẫn xuất,
+  trình duyệt ẩn chỉ do script mở nó điều khiển, proxy cho session extension, ảnh webtoon dài khi xuất PDF…).
 - **Dọn booru (mục 5, một phần)**: README, `docs/specs.md`, mô tả `app/package.json` / `pyproject.toml`, CI chạy test
   Lynxx. README và đặc tả booru cũ chuyển thành `docs/legacy-booru-*.md`.
 
@@ -43,8 +49,6 @@
 - **Gỡ hẳn hệ booru**: thư mục `extensions/` (16 extension booru) vẫn còn vì `tools/build_core.py`, `lynxx/aigen` và
   nhiều test cũ (`test_search_kinds`, `test_catalog_trust`, `test_batch_d_app`, `test_*_ext`) phụ thuộc vào nó; các
   trang Booru vẫn hoạt động trong app. Nên làm thành một đợt riêng, có môi trường chạy đủ test cũ.
-- **Kiểm chứng trong Electron thật**: máy dev chưa cài `node_modules` (Electron); giao diện đã kiểm bằng mock trong
-  trình duyệt, runtime extension và Python đã có test, nhưng sandbox/IPC/printToPDF/transcode chưa chạy trong app.
 - **nhentai live (mục 6)**: vẫn `expired_review` trong policy adapter dựng sẵn. Extension vBook do người dùng cài đi
   theo đường extension (người dùng xác nhận khi cài, chịu trách nhiệm về quyền tải).
 

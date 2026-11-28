@@ -81,7 +81,11 @@ class PluginHost {
     ipcMain.on('plugin-sandbox:sync', (event, op, payload) => {
       const ctx = this.active.get(event.sender.id);
       if (!ctx) { event.returnValue = { error: 'untrusted sender' }; return; }
-      this.bridge(ctx, op, payload).then((v) => { event.returnValue = v === undefined ? null : v; }, (err) => { event.returnValue = { error: String(err && err.message ? err.message : err) }; });
+      const reply = (value) => {
+        try { event.returnValue = value; } catch (err) { event.returnValue = { error: `bridge reply: ${err.message}` }; }
+      };
+      this.bridge(ctx, op, payload).then((v) => reply(v === undefined ? null : v), (err) => reply({ error: String(err && err.message ? err.message : err) }))
+        .catch(() => { /* the sandbox is gone */ });
     });
     ipcMain.on('plugin-sandbox:log', (event, level, text) => {
       const ctx = this.active.get(event.sender.id);
@@ -171,7 +175,12 @@ class PluginHost {
       const target = path.join(this.installedDir, id);
       const old = `${target}.old-${Date.now()}`;
       if (fs.existsSync(target)) await fsp.rename(target, old);
-      await fsp.rename(staging, target);
+      try {
+        await fsp.rename(staging, target);
+      } catch (err) {
+        if (fs.existsSync(old) && !fs.existsSync(target)) await fsp.rename(old, target).catch(() => {});
+        throw err;
+      }
       if (fs.existsSync(old)) await fsp.rm(old, { recursive: true, force: true });
     } catch (err) {
       await fsp.rm(staging, { recursive: true, force: true });
@@ -310,26 +319,30 @@ class PluginHost {
       },
     });
     let markReady;
-    const slot = { win, busy: false, runs: 0, ready: new Promise((ok) => { markReady = ok; }) };
+    const slot = { win, wcId: win.webContents.id, busy: false, dead: false, runs: 0, ready: new Promise((ok) => { markReady = ok; }) };
     slot.markReady = markReady;
     win.webContents.on('will-navigate', (e) => e.preventDefault());
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('render-process-gone', () => this.dropSlot(slot, 'sandbox crashed'));
     win.on('closed', () => this.dropSlot(slot, 'sandbox closed'));
-    win.loadURL(this.sandboxUrl);
+    win.loadURL(this.sandboxUrl).catch((err) => this.dropSlot(slot, `sandbox did not load: ${err.message}`));
     this.pool.push(slot);
     return slot;
   }
 
   dropSlot(slot, reason) {
+    slot.dead = true;
     const i = this.pool.indexOf(slot);
     if (i >= 0) this.pool.splice(i, 1);
     for (const [id, p] of this.pending) if (p.slot === slot) this.finishRun(id, { ok: false, error: reason });
+    this.active.delete(slot.wcId);
+    this.closeBrowsers(slot.wcId);
     if (!slot.win.isDestroyed()) slot.win.destroy();
     this.pump();
   }
 
   run(pluginId, entry, args, { timeoutMs = RUN_TIMEOUT_MS } = {}) {
+    if (this.closed) return Promise.resolve({ ok: false, error: 'Lynxx is closing' });
     const pkg = this.package(pluginId);
     if (!(entry in pkg.files)) return Promise.resolve({ ok: false, error: `script ${entry} không có trong extension` });
     return new Promise((resolve) => {
@@ -339,8 +352,9 @@ class PluginHost {
   }
 
   pump() {
+    if (this.closed) return;
     while (this.queue.length) {
-      let slot = this.pool.find((s) => !s.busy && !s.win.isDestroyed());
+      let slot = this.pool.find((s) => !s.busy && !s.dead && !s.win.isDestroyed());
       if (!slot) {
         if (this.pool.length >= POOL_MAX) return;
         slot = this.newSlot();
@@ -355,7 +369,11 @@ class PluginHost {
     slot.runs += 1;
     const id = `run-${++this.seq}`;
     const timer = setTimeout(() => {
-      // an endless loop or a stuck bridge call: the whole sandbox renderer goes
+      // an endless loop or a stuck bridge call: the whole sandbox renderer goes. The slot leaves the pool first, so the next
+      // queued script is never handed to the renderer being destroyed
+      slot.dead = true;
+      const at = this.pool.indexOf(slot);
+      if (at >= 0) this.pool.splice(at, 1);
       this.finishRun(id, { ok: false, error: `extension chạy quá ${Math.round(job.timeoutMs / 1000)} giây` });
       this.dropSlot(slot, 'timeout');
     }, job.timeoutMs);
@@ -375,10 +393,10 @@ class PluginHost {
     this.pending.delete(id);
     clearTimeout(p.timer);
     const slot = p.slot;
-    if (!slot.win.isDestroyed()) this.active.delete(slot.win.webContents.id);
-    this.closeBrowsers(slot.win.isDestroyed() ? null : slot.win.webContents.id);
+    this.active.delete(slot.wcId);
+    this.closeBrowsers(slot.wcId);
     slot.busy = false;
-    if (slot.runs >= RUNS_PER_WINDOW && !slot.win.isDestroyed()) this.dropSlot(slot, 'recycled');
+    if (slot.runs >= RUNS_PER_WINDOW && !slot.dead && !slot.win.isDestroyed()) this.dropSlot(slot, 'recycled');
     p.resolve(result && typeof result === 'object' ? result : { ok: false, error: 'kết quả không hợp lệ' });
     this.pump();
   }
@@ -448,7 +466,8 @@ class PluginHost {
 
   async browser(ctx, p) {
     const owner = [...this.active].find(([, v]) => v === ctx)?.[0];
-    const b = this.browsers.get(String(p.id));
+    const found = this.browsers.get(String(p.id));
+    const b = found && found.owner === owner ? found : null; // a script only drives the browsers it opened
     switch (p.op) {
       case 'open': {
         if ([...this.browsers.values()].filter((x) => x.owner === owner).length >= BROWSER_MAX) return { error: 'quá nhiều trình duyệt ẩn' };
@@ -465,11 +484,15 @@ class PluginHost {
         const url = String(p.url || '');
         await this.opts.assertPublicHost(url);
         const timeout = Math.min(Math.max(Number(p.timeout) || 15000, 1), 60000);
+        const wc = b.win.webContents;
         const loaded = new Promise((ok) => {
-          const done = () => ok();
-          b.win.webContents.once('did-finish-load', done);
-          b.win.webContents.once('did-fail-load', done);
-          setTimeout(done, timeout);
+          let timer = null;
+          const finish = () => { clearTimeout(timer); wc.removeListener('did-finish-load', finish); wc.removeListener('did-fail-load', failed); ok(); };
+          // a sub-frame (an ad cancelled by block()) or an aborted navigation is not the end of the page load
+          const failed = (_e, code, _desc, _url, isMainFrame) => { if (isMainFrame && code !== -3) finish(); };
+          wc.on('did-finish-load', finish);
+          wc.on('did-fail-load', failed);
+          timer = setTimeout(finish, timeout);
         });
         b.win.loadURL(url).catch(() => {});
         if (p.async) return { html: '', url };
@@ -523,15 +546,22 @@ class PluginHost {
     const url = pkg.manifest.metadata.source;
     if (!/^https?:\/\//i.test(url)) throw new Error('extension không có địa chỉ nguồn (source)');
     const win = new BrowserWindow({ width: 1100, height: 800, parent: parent || undefined, title: `Mở trang nguồn — ${pkg.manifest.metadata.name}`, autoHideMenuBar: true, webPreferences: { partition: PLUGIN_PARTITION, sandbox: true, contextIsolation: true, nodeIntegration: false } });
-    win.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https?:\/\//i.test(u)) win.loadURL(u); return { action: 'deny' }; });
-    win.loadURL(url);
+    win.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https?:\/\//i.test(u)) win.loadURL(u).catch(() => {}); return { action: 'deny' }; });
+    win.loadURL(url).catch(() => { /* offline / DNS error: the window shows Chromium's error page */ });
     return true;
   }
 
   shutdown() {
+    // quitting: no new sandbox windows, queued scripts fail, every hidden window goes (window-all-closed can fire)
+    this.closed = true;
+    for (const job of this.queue.splice(0)) job.resolve({ ok: false, error: 'Lynxx is closing' });
     this.closeBrowsers(null);
-    for (const slot of [...this.pool]) if (!slot.win.isDestroyed()) slot.win.destroy();
+    for (const slot of [...this.pool]) { slot.dead = true; if (!slot.win.isDestroyed()) slot.win.destroy(); }
     this.pool = [];
+  }
+
+  setProxy(config) {
+    return this.pluginSession ? this.pluginSession.setProxy(config) : Promise.resolve();
   }
 }
 

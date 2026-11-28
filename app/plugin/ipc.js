@@ -40,7 +40,8 @@ function registerLibProtocol(userData) {
       const type = LIB_MIME[path.extname(real).toLowerCase()];
       if (!type) return new Response('forbidden', { status: 403 });
       const buf = await fsp.readFile(real);
-      return new Response(buf, { headers: { 'content-type': type, 'cache-control': 'max-age=3600' } });
+      // re-downloads keep the file names (0001.jpg, cover.jpg): never serve a cached copy
+      return new Response(buf, { headers: { 'content-type': type, 'cache-control': 'no-cache' } });
     } catch {
       return new Response('not found', { status: 404 });
     }
@@ -64,8 +65,22 @@ function setupReader(ctx) {
       return await sidecar.call('export.build', { collectionId, format, options, output }, 1800000);
     } catch (err) {
       if (err.code === -32011 && err.data?.transcode?.length) {
-        const replacements = await transcodeImages(err.data.transcode);
-        try { return await sidecar.call('export.build', { collectionId, format, options, output, replacements: replacements.map }, 1800000); } finally { await replacements.cleanup(); }
+        // the sidecar lists at most 5000 files per answer: convert, ask again, until it has everything
+        const map = {};
+        const cleanups = [];
+        try {
+          let pending = err.data.transcode;
+          for (let round = 0; round < 20; round++) {
+            const t = await transcodeImages(pending.filter((p) => !(p in map)));
+            cleanups.push(t.cleanup);
+            Object.assign(map, t.map);
+            try { return await sidecar.call('export.build', { collectionId, format, options, output, replacements: map }, 1800000); } catch (again) {
+              if (again.code !== -32011 || !again.data?.transcode?.some((p) => !(p in map))) throw again;
+              pending = again.data.transcode;
+            }
+          }
+          throw new Error('quá nhiều ảnh cần chuyển định dạng');
+        } finally { for (const c of cleanups) await c(); }
       }
       if (err.code === -32010) {
         const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'lynxx-print-'));
@@ -156,7 +171,8 @@ function setupReader(ctx) {
   handle('plugins:toc', (_e, id, url) => pluginCall(id, (s) => s.toc(str(url))));
 
   // ------------------------------------------------------------ downloads
-  handle('book:download', (_e, params) => jobs.start(params && typeof params === 'object' ? params : {}));
+  // `then` (export after download) is main's own: an export path never comes from the renderer
+  handle('book:download', (_e, params) => jobs.start(params && typeof params === 'object' ? { ...params, then: null, collectionId: '' } : {}));
   handle('book:jobs', () => jobs.list());
   handle('book:cancel', (_e, id) => jobs.cancel(str(id, 100)));
   handle('book:clear', () => jobs.clearFinished());
@@ -270,19 +286,26 @@ async function transcodeImages(paths) {
   const map = {};
   try {
     await win.loadURL('about:blank');
+    let crashed = null;
+    win.webContents.on('render-process-gone', (_e, d) => { crashed = new Error(`image converter stopped (${d.reason})`); });
+    const withTimeout = (p, ms) => Promise.race([p, new Promise((_, ko) => setTimeout(() => ko(crashed || new Error('image conversion timed out')), ms))]);
     for (const file of paths.slice(0, 20000)) {
+      if (crashed) throw crashed;
       // the bytes go in as a data: URL (a file:// image would taint the canvas)
       const bytes = await fsp.readFile(file);
       const head = bytes.subarray(0, 12).toString('latin1');
       const mime = head.startsWith('RIFF') && head.slice(8) === 'WEBP' ? 'image/webp' : head.startsWith('GIF8') ? 'image/gif'
         : head.slice(4, 11) === 'ftypavi' ? 'image/avif' : head.startsWith('BM') ? 'image/bmp' : 'image/png';
       const source = `data:${mime};base64,${bytes.toString('base64')}`;
-      const dataUrl = await win.webContents.executeJavaScript(`(async () => {
+      // canvases stop at 32767 px a side (long webtoon strips): such images are scaled down to fit
+      const dataUrl = await withTimeout(win.webContents.executeJavaScript(`(async () => {
         const img = new Image(); img.src = ${JSON.stringify(source)}; await img.decode();
-        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
-        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+        const scale = Math.min(1, 32000 / Math.max(img.naturalWidth, img.naturalHeight), Math.sqrt(250e6 / (img.naturalWidth * img.naturalHeight)));
+        const c = document.createElement('canvas'); c.width = Math.max(1, Math.floor(img.naturalWidth * scale)); c.height = Math.max(1, Math.floor(img.naturalHeight * scale));
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
         return c.toDataURL('image/jpeg', 0.92);
-      })()`, true);
+      })()`, true), 120000);
+      if (!/^data:image\/jpeg;base64,./.test(String(dataUrl))) throw new Error(`không chuyển được ảnh ${path.basename(file)}`);
       const out = path.join(dir, `${crypto.createHash('sha1').update(file).digest('hex')}.jpg`);
       await fsp.writeFile(out, Buffer.from(String(dataUrl).split(',')[1] || '', 'base64'));
       map[file] = out;
@@ -298,8 +321,13 @@ async function printToPdf(htmlPath, output, title) {
   try {
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (e) => e.preventDefault());
+    let crashed = null;
+    win.webContents.on('render-process-gone', (_e, d) => { crashed = new Error(`PDF renderer stopped (${d.reason})`); });
     await win.loadFile(htmlPath);
-    const pdf = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, generateDocumentOutline: true, generateTaggedPDF: true, displayHeaderFooter: false });
+    const pdf = await Promise.race([
+      win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, generateDocumentOutline: true, generateTaggedPDF: true, displayHeaderFooter: false }),
+      new Promise((_, ko) => setTimeout(() => ko(crashed || new Error('PDF printing timed out')), 20 * 60 * 1000)),
+    ]);
     const tmp = `${output}.${process.pid}.tmp`;
     await fsp.writeFile(tmp, pdf);
     await fsp.rename(tmp, output);
