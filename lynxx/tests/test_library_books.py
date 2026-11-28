@@ -143,6 +143,54 @@ class LibraryBookTests(unittest.TestCase):
         self.assertEqual(export_service.export_collection(self.db, self.root, cid, "epub2", {"scope": "downloaded"}, out)["chapters"], 1)
         self.assertEqual(len(books.collection_detail(self.db, self.root, cid)["exports"]), 4)
 
+    def test_refreshing_an_export_adds_the_new_chapter(self) -> None:
+        """A novel with 5 chapters is exported; the site publishes chapter 6; "Cập nhật" (or the automatic update) writes the
+        same file again with 6 chapters, the same book identifier and the same options."""
+        def toc(n: int) -> list[dict]:
+            return [{"name": f"Chương {i}", "url": f"https://n.test/b/2/c{i}"} for i in range(1, n + 1)]
+
+        def upsert(n: int) -> dict:
+            return books.upsert_book(self.db, self.root, plugin_id="novel-1", plugin_name="NovelSite", source="https://n.test",
+                                     url="https://n.test/b/2", kind="novel", detail={"name": "Kiếm Đạo"}, chapters=toc(n))
+
+        def download(book: dict) -> None:
+            for ch in book["chapters"]:
+                if ch["state"] != "ready":
+                    books.commit_text(self.db, self.root, ch["id"], f"<p>Nội dung {ch['title']}</p>")
+
+        book = upsert(5)
+        cid = book["collectionId"]
+        download(book)
+        out = Path(self.tmp.name) / "Kiếm Đạo_NovelSite.epub"
+        options = {"scope": "all", "includeIntro": True, "includeToc": True, "showTitles": True, "autoUpdate": True}
+        first = export_service.export_collection(self.db, self.root, cid, "epub3", options, out)
+        self.assertEqual(first["chapters"], 5)
+
+        def read(path: Path) -> tuple[list[str], str, str]:
+            with zipfile.ZipFile(path) as archive:
+                names = sorted(n for n in archive.namelist() if re.fullmatch(r"OEBPS/Text/chapter_\d+\.xhtml", n))
+                opf = archive.read("OEBPS/content.opf").decode()
+                return names, re.search(r'<dc:identifier id="BookId">([^<]+)<', opf).group(1), archive.read("OEBPS/Text/toc.xhtml").decode()
+
+        names, identifier, _ = read(out)
+        self.assertEqual(len(names), 5)
+        # chapter 6 comes out: the update reads the chapter list again and downloads only the new chapter
+        book = upsert(6)
+        self.assertEqual([c["state"] for c in book["chapters"]], ["ready"] * 5 + ["pending"])
+        download(book)
+        # what main does after the download (export.autoTargets) or on "Cập nhật": the saved options, the same path
+        target = next(t for t in export_service.auto_update_exports(self.db, cid) if t["path"] == str(out))
+        again = export_service.export_collection(self.db, self.root, cid, target["format"], target["options"], target["path"])
+        self.assertEqual(again["chapters"], 6)
+        names6, identifier6, toc6 = read(out)
+        self.assertEqual(len(names6), 6)
+        self.assertEqual(identifier6, identifier)  # e-readers see the same book, not a new one
+        self.assertIn("Chương 6", toc6)
+        with zipfile.ZipFile(out) as archive:
+            self.assertIn("Nội dung Chương 6", archive.read(names6[-1]).decode())
+        exports = books.collection_detail(self.db, self.root, cid)["exports"]
+        self.assertEqual([(x["chapters"], x["path"]) for x in exports], [(6, str(out))])
+
     def test_comic_cbz_and_pdf(self) -> None:
         book = self.comic()
         cid = book["collectionId"]

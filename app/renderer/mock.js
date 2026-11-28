@@ -7,12 +7,12 @@
   const emit = (ch, data) => (listeners[ch] || []).forEach((cb) => cb(data));
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
   const ICONS = [
-    { id: 'full-mask-cyan', name: 'Full mask · Cyan' }, { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' },
-    { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' }, { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' },
+    { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' }, { id: 'full-mask-cyan', name: 'Full mask · Cyan' },
+    { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' }, { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' },
   ];
   const settings = {
-    version: 4,
-    appearance: { theme: 'abyss', icon: 'full-mask-cyan', background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 } },
+    version: 5,
+    appearance: { theme: 'abyss', icon: 'exposed-jaw-cyan', background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 } },
     download: { notify: true }, connection: { proxy: '', ignoreProxy: false }, advanced: { pythonPath: '' }, window: { width: 1360, height: 860 },
   };
   const iconUrl = (id) => `../assets/icons/${id}.png`;

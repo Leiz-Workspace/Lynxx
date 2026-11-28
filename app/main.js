@@ -36,10 +36,10 @@ const CORE_NAME = process.platform === 'win32' ? 'lynxx-core.exe' : 'lynxx-core'
 const PACKAGE_NAME = (() => { try { return require('./package.json').name; } catch { return ''; } })();
 const ICON_DIR = path.join(__dirname, 'assets', 'icons');
 const ICONS = [
+  { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' }, // the app icon (installers, launcher)
   { id: 'full-mask-cyan', name: 'Full mask · Cyan' },
-  { id: 'exposed-jaw-cyan', name: 'Exposed jaw · Cyan' },
-  { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' },
   { id: 'exposed-jaw-monochrome-1024', name: 'Exposed jaw · Mono' },
+  { id: 'full-mask-monochrome-1024', name: 'Full mask · Mono' },
 ];
 const THEMES = ['abyss', 'graphite', 'paper', 'oled'];
 const THUMB_CACHE_MAX = 512 * 1024 * 1024;
@@ -47,13 +47,14 @@ const THUMB_SIZE_MAX = 25 * 1024 * 1024;
 const THUMB_TIMEOUT_MS = 20000;
 const THUMB_REDIRECTS_MAX = 5; // cover images: redirects followed, each hop checked (see upstreamGet)
 // v4: Lynxx without the booru downloader it was forked from (settings of those pages are dropped on load)
-const SETTINGS_VERSION = 4;
+// v5: the exposed jaw icon is the app icon: a profile still on the former default (full mask) follows it
+const SETTINGS_VERSION = 5;
 
 const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
   appearance: {
     theme: 'abyss',
-    icon: 'full-mask-cyan',
+    icon: 'exposed-jaw-cyan',
     background: { mode: 'icon', image: '', blur: 4, opacity: 0.9, dim: 0.18 },
   },
   download: { notify: true }, // a system notification when a book download ends while Lynxx is not the focused window
@@ -230,6 +231,7 @@ function migrateSettings(from) {
   if (from < 3 && oldDefaults.some(([b, o, d]) => bg.blur === b && bg.opacity === o && bg.dim === d)) {
     Object.assign(bg, { blur: 4, opacity: 0.9, dim: 0.18 });
   }
+  if (from < 5 && settings.appearance.icon === 'full-mask-cyan') settings.appearance.icon = 'exposed-jaw-cyan';
 }
 
 function loadSettings() {

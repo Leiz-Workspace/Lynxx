@@ -64,7 +64,7 @@
       ],
       "executableName": "lynxx",
       "syncDesktopName": true,
-      "icon": "assets/icons/full-mask-cyan.png",
+      "icon": "assets/icons/exposed-jaw-cyan.png",
       "category": "Office",
       "synopsis": "Comic, novel and book downloader and reader",
       "description": "Download comics and novels with vBook-format extensions, read EPUB/PDF/MOBI/CBZ/DOCX and more, export EPUB/KEPUB/CBZ/PDF",
@@ -81,7 +81,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/full-mask-cyan.png"
+      "icon": "assets/icons/exposed-jaw-cyan.png"
     },
     "nsis": {
       "oneClick": false,
@@ -108,7 +108,7 @@
         }
       ],
       "category": "public.app-category.utilities",
-      "icon": "assets/icons/full-mask-cyan.png",
+      "icon": "assets/icons/exposed-jaw-cyan.png",
       "identity": null
     },
     "deb": {

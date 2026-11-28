@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/assets/icons/full-mask-cyan.png" alt="Lynxx" width="128" height="128" />
+  <img src="app/assets/icons/exposed-jaw-cyan.png" alt="Lynxx" width="128" height="128" />
 </p>
 
 # Lynxx
