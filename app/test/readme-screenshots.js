@@ -22,7 +22,15 @@ app.whenReady().then(async () => {
   await win.loadFile(index);
   const js = (code) => win.webContents.executeJavaScript(code, true);
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const shot = async (name) => { await wait(400); fs.writeFileSync(path.join(out, name), (await win.webContents.capturePage()).toPNG()); console.log('shot', name); };
+  // the pointer starts where the X server puts it (xvfb-run: the middle of a 640x480 screen, over a card): it goes to an empty
+  // corner of the sidebar first, so no card is shown hovered
+  const park = () => win.webContents.sendInputEvent({ type: 'mouseMove', x: 20, y: 700 });
+  const shot = async (name) => {
+    park();
+    await wait(500);
+    fs.writeFileSync(path.join(out, name), (await win.webContents.capturePage()).toPNG());
+    console.log('shot', name);
+  };
   try {
     await wait(2500);
     await js("try { localStorage.clear(); } catch {} ; showPage('shelf')");
